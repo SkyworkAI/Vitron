@@ -1,6 +1,3 @@
-[submodule "StableVideo"]
-	path = StableVideo
-	url = https://github.com/rese1f/StableVideo.git
 [submodule "GLIGEN"]
 	path = GLIGEN
 	url = https://github.com/gligen/GLIGEN.git
