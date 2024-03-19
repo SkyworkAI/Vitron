@@ -656,7 +656,7 @@ def build_demo():
         with gr.Row():
             with gr.Column(scale=7, min_width=500):
                 with gr.Row(): 
-                    chatbot = gr.Chatbot(label='Vitron Chatbot', height=500, elem_id='chatbot', avatar_images=((os.path.join(os.path.dirname(__file__), 'vitron.png')), (os.path.join(os.path.dirname(__file__), "vitron.png"))))
+                    chatbot = gr.Chatbot(label='Vitron Chatbot', height=500, elem_id='chatbot', avatar_images=((os.path.join(os.path.dirname(__file__), 'user.png')), (os.path.join(os.path.dirname(__file__), "vitron.png"))))
                 
                 with gr.Row():
                     user_input = gr.Textbox(label='User Input', placeholder='Enter your text here', elem_id='user_input', lines=3)  
