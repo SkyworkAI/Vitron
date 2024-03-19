@@ -1,3 +1,6 @@
 [submodule "SEEM"]
 	path = SEEM
 	url = https://github.com/UX-Decoder/Segment-Everything-Everywhere-All-At-Once.git
+[submodule "StableVideo"]
+	path = StableVideo
+	url = https://github.com/rese1f/StableVideo.git
