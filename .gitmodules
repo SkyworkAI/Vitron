@@ -7,3 +7,6 @@
 [submodule "GLIGEN"]
 	path = GLIGEN
 	url = https://github.com/gligen/GLIGEN.git
+[submodule "i2vgen-xl"]
+	path = i2vgen-xl
+	url = https://github.com/ali-vilab/VGen.git
