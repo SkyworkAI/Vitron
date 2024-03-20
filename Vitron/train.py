@@ -836,12 +836,9 @@ class LazySupervisedDataset(Dataset):
                         region_ann = [self.list_data_dict[i]['bbox']]
                         image, region = zip(*[expand2squareWregion(i, tuple(int(x * 255) for x in image_processor.image_mean), j) for i, j in zip(image, region_ann)])
                         source_id = sources[0]['id']
-                        # show_image_with_bboxes(os.path.join('/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/data/vg', sources[0]['image']), [sources[0]['bbox']], f'./{source_id}_bbox.jpg')
-                        # show_image_with_bboxes(image[0], region, f'./{source_id}_transformed_1_bbox.jpg')
                         ori_image_size = [[img.width, img.height] for img in image]
                         image = [image_processor.preprocess(i, return_tensors='pt')['pixel_values'][0] for i in image]
                         region = [preprocess_region(bbox, ori_im_size, [224, 224]) for bbox, ori_im_size in zip(region, ori_image_size)]
-                        # show_image_with_bboxes(image[0], region, f'./{source_id}_transformed_2_bbox.jpg')
 
                     else:
                         image = [expand2square(i, tuple(int(x * 255) for x in image_processor.image_mean)) for i in image]
