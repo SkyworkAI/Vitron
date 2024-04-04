@@ -1,0 +1,64 @@
+[2024-01-06 11:22:39,393] INFO: {'__name__': 'Config: VideoLDM Decoder', 'mean': [0.5, 0.5, 0.5], 'std': [0.5, 0.5, 0.5], 'max_words': 1000, 'num_workers': 6, 'prefetch_factor': 2, 'resolution': [1280, 704], 'vit_out_dim': 1024, 'vit_resolution': [224, 224], 'depth_clamp': 10.0, 'misc_size': 384, 'depth_std': 20.0, 'frame_lens': [16, 16, 16, 16, 16, 32, 32, 32], 'sample_fps': [8, 8, 16, 16, 16, 8, 16, 16], 'vid_dataset': {'type': 'VideoDataset', 'data_list': ['data/vid_list.txt'], 'max_words': 1000, 'resolution': [1280, 704], 'data_dir_list': ['data/videos/'], 'vit_resolution': [224, 224], 'get_first_frame': True}, 'img_dataset': {'type': 'ImageDataset', 'data_list': ['data/img_list.txt'], 'max_words': 1000, 'resolution': [1280, 704], 'data_dir_list': ['data/images'], 'vit_resolution': [224, 224]}, 'batch_sizes': {'1': 32, '4': 8, '8': 4, '16': 2, '32': 1}, 'Diffusion': {'type': 'DiffusionDDIM', 'schedule': 'cosine', 'schedule_param': {'num_timesteps': 1000, 'cosine_s': 0.008, 'zero_terminal_snr': True}, 'mean_type': 'v', 'loss_type': 'mse', 'var_type': 'fixed_small', 'rescale_timesteps': False, 'noise_strength': 0.1, 'ddim_timesteps': 50}, 'ddim_timesteps': 50, 'use_div_loss': False, 'p_zero': 0.0, 'guide_scale': 9.0, 'vit_mean': [0.48145466, 0.4578275, 0.40821073], 'vit_std': [0.26862954, 0.26130258, 0.27577711], 'scale_factor': 0.18215, 'use_checkpoint': True, 'use_sharded_ddp': False, 'use_fsdp': False, 'use_fp16': True, 'temporal_attention': True, 'UNet': {'type': 'UNetSD_I2VGen', 'in_dim': 4, 'dim': 320, 'y_dim': 1024, 'context_dim': 1024, 'out_dim': 4, 'dim_mult': [1, 2, 4, 4], 'num_heads': 8, 'head_dim': 64, 'num_res_blocks': 2, 'attn_scales': [1.0, 0.5, 0.25], 'dropout': 0.1, 'temporal_attention': True, 'temporal_attn_times': 1, 'use_checkpoint': True, 'use_fps_condition': False, 'use_sim_mask': False, 'upper_len': 128, 'concat_dim': 4, 'default_fps': 8}, 'guidances': [], 'auto_encoder': {'type': 'AutoencoderKL', 'ddconfig': {'double_z': True, 'z_channels': 4, 'resolution': 256, 'in_channels': 3, 'out_ch': 3, 'ch': 128, 'ch_mult': [1, 2, 4, 4], 'num_res_blocks': 2, 'attn_resolutions': [], 'dropout': 0.0, 'video_kernel_size': [3, 1, 1]}, 'embed_dim': 4, 'pretrained': 'models/v2-1_512-ema-pruned.ckpt'}, 'embedder': {'type': 'FrozenOpenCLIPTtxtVisualEmbedder', 'layer': 'penultimate', 'pretrained': 'models/open_clip_pytorch_model.bin', 'vit_resolution': [224, 224]}, 'ema_decay': 0.9999, 'num_steps': 1000000, 'lr': 3e-05, 'weight_decay': 0.0, 'betas': [0.9, 0.999], 'eps': 1e-08, 'chunk_size': 2, 'decoder_bs': 2, 'alpha': 0.7, 'save_ckp_interval': 50, 'warmup_steps': 10, 'decay_mode': 'cosine', 'use_ema': True, 'load_from': None, 'Pretrain': {'type': 'pretrain_specific_strategies', 'fix_weight': False, 'grad_scale': 0.5, 'resume_checkpoint': 'models/i2vgen_xl_00854500.pth', 'sd_keys_path': 'models/stable_diffusion_image_key_temporal_attention_x1.json'}, 'viz_interval': 50, 'visual_train': {'type': 'VisualTrainTextImageToVideo', 'partial_keys': [['y', 'image', 'local_image', 'fps']], 'use_offset_noise': True, 'guide_scale': 9.0}, 'visual_inference': {'type': 'VisualGeneratedVideos'}, 'inference_list_path': '', 'log_interval': 1, 'log_dir': 'workspace/experiments/test_list_for_i2vgen', 'seed': 8888, 'negative_prompt': 'Distorted, discontinuous, Ugly, blurry, low resolution, motionless, static, disfigured, disconnected limbs, Ugly faces, incomplete arms', 'ENABLE': True, 'DATASET': 'webvid10m', 'TASK_TYPE': 'inference_i2vgen_entrance', 'max_frames': 16, 'target_fps': 16, 'scale': 8, 'round': 4, 'batch_size': 1, 'use_zero_infer': True, 'vldm_cfg': 'configs/i2vgen_xl_train.yaml', 'test_list_path': 'data/test_list_for_i2vgen.txt', 'test_model': 'models/i2vgen_xl_00854500.pth', 'cfg_file': 'configs/i2vgen_xl_infer.yaml', 'init_method': 'tcp://localhost:9999', 'debug': False, 'opts': [], 'pmi_rank': 0, 'pmi_world_size': 1, 'gpus_per_machine': 8, 'world_size': 8, 'noise_strength': 0.1, 'gpu': 1, 'rank': 1, 'log_file': 'workspace/experiments/test_list_for_i2vgen/log_01.txt'}
+[2024-01-06 11:22:39,395] INFO: Going into it2v_fullid_img_text inference on 1 gpu
+[2024-01-06 11:22:39,422] INFO: Loaded ViT-H-14 model config.
+[2024-01-06 11:22:48,437] INFO: Loading pretrained ViT-H-14 weights (models/open_clip_pytorch_model.bin).
+[2024-01-06 11:28:36,300] INFO: Restored from models/v2-1_512-ema-pruned.ckpt
+[2024-01-06 11:30:22,020] INFO: Load model from models/i2vgen_xl_00854500.pth with status <All keys matched successfully>
+[2024-01-06 11:30:27,805] INFO: There are 12 videos. with 4 times
+[2024-01-06 11:30:27,806] INFO: Skip ## To test our images, it is recommended to run one data point at a time (i.e., uncommenting only one line at a time), which should reproduce our results.
+[2024-01-06 11:30:27,806] INFO: Skip ## To test our images, it is recommended to run one data point at a time (i.e., uncommenting only one line at a time), which should reproduce our results.
+[2024-01-06 11:30:27,807] INFO: Skip ## To test our images, it is recommended to run one data point at a time (i.e., uncommenting only one line at a time), which should reproduce our results.
+[2024-01-06 11:30:27,808] INFO: Skip ## To test our images, it is recommended to run one data point at a time (i.e., uncommenting only one line at a time), which should reproduce our results.
+[2024-01-06 11:30:27,808] INFO: [4]/[12] Begin to sample data/test_images/img_0001.jpg|||A green frog floats on the surface of the water on green lotus leaves, with several pink lotus flowers, in a Chinese painting style. ...
+[2024-01-06 11:30:32,205] INFO: GPU Memory used 21.79 GB
+[2024-01-06 11:33:03,066] INFO: Save video to dir workspace/experiments/test_list_for_i2vgen/img_0001_08_01_A_green_frog_floats_on_the_surface_of_the_water_on_green_lotus_leaves_with_several_pink_lotus_flowers_in_a_Chinese_painting_style_04.mp4:
+[2024-01-06 11:33:03,067] INFO: [5]/[12] Begin to sample data/test_images/img_0001.jpg|||A green frog floats on the surface of the water on green lotus leaves, with several pink lotus flowers, in a Chinese painting style. ...
+[2024-01-06 11:33:03,326] INFO: GPU Memory used 35.99 GB
+[2024-01-06 11:35:19,725] INFO: Save video to dir workspace/experiments/test_list_for_i2vgen/img_0001_08_01_A_green_frog_floats_on_the_surface_of_the_water_on_green_lotus_leaves_with_several_pink_lotus_flowers_in_a_Chinese_painting_style_05.mp4:
+[2024-01-06 11:35:19,727] INFO: [6]/[12] Begin to sample data/test_images/img_0001.jpg|||A green frog floats on the surface of the water on green lotus leaves, with several pink lotus flowers, in a Chinese painting style. ...
+[2024-01-06 11:35:20,000] INFO: GPU Memory used 36.07 GB
+[2024-01-06 11:37:42,376] INFO: Save video to dir workspace/experiments/test_list_for_i2vgen/img_0001_08_01_A_green_frog_floats_on_the_surface_of_the_water_on_green_lotus_leaves_with_several_pink_lotus_flowers_in_a_Chinese_painting_style_06.mp4:
+[2024-01-06 11:37:42,377] INFO: [7]/[12] Begin to sample data/test_images/img_0001.jpg|||A green frog floats on the surface of the water on green lotus leaves, with several pink lotus flowers, in a Chinese painting style. ...
+[2024-01-06 11:37:42,617] INFO: GPU Memory used 36.07 GB
+[2024-01-06 11:39:38,498] INFO: Save video to dir workspace/experiments/test_list_for_i2vgen/img_0001_08_01_A_green_frog_floats_on_the_surface_of_the_water_on_green_lotus_leaves_with_several_pink_lotus_flowers_in_a_Chinese_painting_style_07.mp4:
+[2024-01-06 11:39:38,499] INFO: Skip # data/test_images/img_0002.png|||A blonde girl in jeans
+[2024-01-06 11:39:38,501] INFO: Skip # data/test_images/img_0002.png|||A blonde girl in jeans
+[2024-01-06 11:39:38,502] INFO: Skip # data/test_images/img_0002.png|||A blonde girl in jeans
+[2024-01-06 11:39:38,503] INFO: Skip # data/test_images/img_0002.png|||A blonde girl in jeans
+[2024-01-06 11:39:38,504] INFO: Skip # data/test_images/img_0003.jpg|||Evening waterfall
+[2024-01-06 11:39:38,505] INFO: Skip # data/test_images/img_0003.jpg|||Evening waterfall
+[2024-01-06 11:39:38,506] INFO: Skip # data/test_images/img_0003.jpg|||Evening waterfall
+[2024-01-06 11:39:38,507] INFO: Skip # data/test_images/img_0003.jpg|||Evening waterfall
+[2024-01-06 11:39:38,508] INFO: Skip # data/test_images/img_0004.png|||A girl with yellow hair and black clothes stood in front of the camera
+[2024-01-06 11:39:38,508] INFO: Skip # data/test_images/img_0004.png|||A girl with yellow hair and black clothes stood in front of the camera
+[2024-01-06 11:39:38,509] INFO: Skip # data/test_images/img_0004.png|||A girl with yellow hair and black clothes stood in front of the camera
+[2024-01-06 11:39:38,510] INFO: Skip # data/test_images/img_0004.png|||A girl with yellow hair and black clothes stood in front of the camera
+[2024-01-06 11:39:38,511] INFO: Skip # data/test_images/img_0005.png|||A girl with yellow hair was wearing a yellow ball suit in front of the cage
+[2024-01-06 11:39:38,512] INFO: Skip # data/test_images/img_0005.png|||A girl with yellow hair was wearing a yellow ball suit in front of the cage
+[2024-01-06 11:39:38,513] INFO: Skip # data/test_images/img_0005.png|||A girl with yellow hair was wearing a yellow ball suit in front of the cage
+[2024-01-06 11:39:38,514] INFO: Skip # data/test_images/img_0005.png|||A girl with yellow hair was wearing a yellow ball suit in front of the cage
+[2024-01-06 11:39:38,515] INFO: Skip # data/test_images/img_0006.png|||A red woodcut bird
+[2024-01-06 11:39:38,515] INFO: Skip # data/test_images/img_0006.png|||A red woodcut bird
+[2024-01-06 11:39:38,516] INFO: Skip # data/test_images/img_0006.png|||A red woodcut bird
+[2024-01-06 11:39:38,517] INFO: Skip # data/test_images/img_0006.png|||A red woodcut bird
+[2024-01-06 11:39:38,518] INFO: Skip # data/test_images/img_0007.jpg|||Chinese ink painting, two boats and two coconut trees by the sea
+[2024-01-06 11:39:38,519] INFO: Skip # data/test_images/img_0007.jpg|||Chinese ink painting, two boats and two coconut trees by the sea
+[2024-01-06 11:39:38,520] INFO: Skip # data/test_images/img_0007.jpg|||Chinese ink painting, two boats and two coconut trees by the sea
+[2024-01-06 11:39:38,520] INFO: Skip # data/test_images/img_0007.jpg|||Chinese ink painting, two boats and two coconut trees by the sea
+[2024-01-06 11:39:38,521] INFO: Skip # data/test_images/img_0008.png|||A dog in a suit and tie faces the camera
+[2024-01-06 11:39:38,522] INFO: Skip # data/test_images/img_0008.png|||A dog in a suit and tie faces the camera
+[2024-01-06 11:39:38,523] INFO: Skip # data/test_images/img_0008.png|||A dog in a suit and tie faces the camera
+[2024-01-06 11:39:38,524] INFO: Skip # data/test_images/img_0008.png|||A dog in a suit and tie faces the camera
+[2024-01-06 11:39:38,525] INFO: Skip # data/test_images/img_0009.png|||Papers were floating in the air on a table in the library
+[2024-01-06 11:39:38,526] INFO: Skip # data/test_images/img_0009.png|||Papers were floating in the air on a table in the library
+[2024-01-06 11:39:38,526] INFO: Skip # data/test_images/img_0009.png|||Papers were floating in the air on a table in the library
+[2024-01-06 11:39:38,527] INFO: Skip # data/test_images/img_0009.png|||Papers were floating in the air on a table in the library
+[2024-01-06 11:39:38,527] INFO: Skip # data/test_images/img_0012.jpg|||A close-up of a parrot
+[2024-01-06 11:39:38,528] INFO: Skip # data/test_images/img_0012.jpg|||A close-up of a parrot
+[2024-01-06 11:39:38,529] INFO: Skip # data/test_images/img_0012.jpg|||A close-up of a parrot
+[2024-01-06 11:39:38,529] INFO: Skip # data/test_images/img_0012.jpg|||A close-up of a parrot
+[2024-01-06 11:39:38,530] INFO: Skip # data/test_images/img_0013.png|||Five goldfish in the style of Chinese painting are swimming
+[2024-01-06 11:39:38,531] INFO: Skip # data/test_images/img_0013.png|||Five goldfish in the style of Chinese painting are swimming
+[2024-01-06 11:39:38,531] INFO: Skip # data/test_images/img_0013.png|||Five goldfish in the style of Chinese painting are swimming
+[2024-01-06 11:39:38,532] INFO: Skip # data/test_images/img_0013.png|||Five goldfish in the style of Chinese painting are swimming
+[2024-01-06 11:39:38,532] INFO: Congratulations! The inference is completed!
