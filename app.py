@@ -10,34 +10,59 @@ import numpy as np
 import requests
 from functools import partial
 from PIL import Image, ImageOps
-from app_utils import ImageBoxState, bbox_draw, open_image
+from app_utils import ImageBoxState, bbox_draw, open_image, mask_to_bbox
 import imageio
 import tempfile
-import Omegaconf
+from omegaconf import OmegaConf
 import torch
 from diffusers import I2VGenXLPipeline
 from diffusers.utils import export_to_gif, export_to_video
 from diffusers import DiffusionPipeline, DPMSolverMultistepScheduler
 from urllib.request import urlopen
 from PIL import Image
-from Vitron.vitron.constants import IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN, OBJS_TOKEN_INDEX, DEFAULT_VIDEO_TOKEN
-from Vitron.vitron.conversation import conv_templates, SeparatorStyle
-from Vitron.vitron.model.builder import load_pretrained_model
-from Vitron.vitron.utils import disable_torch_init
-from Vitron.vitron.mm_utils import tokenizer_image_token, get_model_name_from_path, KeywordsStoppingCriteria, tokenizer_image_region_token, preprocess_region, show_image_with_bboxes
 
-os.environ["BASE_HOME"] = "."
 
-# sys.path.append(os.path.join(os.environ['BASE_HOME'], 'GLIGEN/demo'))
-# import GLIGEN.demo.app as GLIGEN
+os.environ["BASE_HOME"] = os.path.dirname(__file__)
+sys.path.append(os.path.dirname(__file__))
 
-# sys.path.append(os.path.join(os.environ['BASE_HOME'], 'SEEM/demo_code'))
-# import SEEM.demo_code.app as SEEM  # must import GLIGEN_app before this. Otherwise, it will hit a protobuf error
+sys.path.append(os.path.join(os.environ['BASE_HOME'], 'modules/GLIGEN/demo'))
+import modules.GLIGEN.demo.app as GLIGEN
+import modules.GLIGEN.demo.gligen.task_grounded_generation as GLIGEN_generation
 
-# sys.path.append(os.path.join(os.environ['BASE_HOME'], 'Vitron'))
+sys.path.append(os.path.join(os.environ['BASE_HOME'], 'modules/SEEM/demo_code'))
+sys.path.append(os.path.join(os.environ['BASE_HOME'], 'modules/SEEM/demo_code/tasks'))
+import modules.SEEM.demo_code.app as SEEM
+import modules.SEEM.demo_code.utils.visualizer as visual
+# import SEEM.demo_code.tasks.visualizer as visual
 
-# sys.path.append(os.path.join(os.environ['BASE_HOME'], 'StableVideo'))
-# import StableVideo.app as stablevideo
+sys.path.append(os.path.join(os.environ['BASE_HOME'], 'modules/StableVideo'))
+import modules.StableVideo.app as stablevideo
+
+# sys.path.append(os.path.join(os.environ['BASE_HOME'], 'Vitron/vitron'))
+from vitron.constants import IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN, OBJS_TOKEN_INDEX, DEFAULT_VIDEO_TOKEN, DEFAULT_OBJS_TOKEN
+from vitron.conversation import conv_templates, SeparatorStyle
+from vitron.model.builder import load_pretrained_model
+from vitron.utils import disable_torch_init
+from vitron.mm_utils import tokenizer_image_token, get_model_name_from_path, KeywordsStoppingCriteria, tokenizer_image_region_token, preprocess_region, show_image_with_bboxes
+
+
+def load_model(model_base, model_path, model_name='vitron-7b-lora-6'):
+    disable_torch_init()
+    cache_dir = 'cache_dir'
+    device = 'cuda'
+    load_4bit, load_8bit = False, False
+    tokenizer, model, processor, _ = load_pretrained_model(model_path, model_base, model_name, load_8bit, load_4bit, device=device, cache_dir=cache_dir)
+    image_processor = processor['image']
+    video_processor = processor['video']
+    conv_mode = "llava_v1"
+    conv = conv_templates[conv_mode].copy()
+    return tokenizer, model, image_processor, video_processor, conv
+
+model_path = 'checkpoints/Vitron-lora/vitron-7b-lora-6'
+model_base = 'checkpoints/Vitron-base'
+model_name = 'vitron-7b-llava-lora-6'
+tokenizer, model, image_processor, video_processor, conv = load_model(model_path=model_path, model_base=model_base, model_name=model_name)
+print('load model successfully')
 
 
 def save_image_to_local(image: Image.Image):
@@ -53,8 +78,11 @@ def save_video_to_local(video):
     if not os.path.exists('temp'):
         os.mkdir('temp')
     filename = os.path.join('temp', next(tempfile._get_candidate_names()) + '.mp4')
+    # export_to_video(video, filename)
     writer = imageio.get_writer(filename, format='FFMPEG', fps=8)
     for frame in video:
+        if isinstance(frame, Image.Image):
+            frame = np.array(frame)
         writer.append_data(frame)
     writer.close()
     return filename
@@ -65,18 +93,18 @@ def image_generation(prompt="a black swan swimming in a pond surrounded by green
     :param prompt: text
     :return: 
     """
-    sys.path.append(os.path.join(os.environ['BASE_HOME'], 'GLIGEN/demo'))
-    import GLIGEN.demo.gligen.task_grounded_generation as GLIGEN
-    cache_file = os.path.join('gligen/gligen-generation-text-box', 'diffusion_pytorch_model.bin')
+    # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'GLIGEN/demo'))
+    # import GLIGEN.demo.gligen.task_grounded_generation as GLIGEN_generation
+    cache_file = os.path.join('checkpoints/gligen/gligen-generation-text-box', 'diffusion_pytorch_model.bin')
     pretrained_ckpt_gligen = torch.load(cache_file, map_location='cpu')
-    cache_config = os.path.join('gligen/demo_config_legacy', 'gligen-generation-text-box.pth')
+    cache_config = os.path.join('checkpoints/gligen/demo_config_legacy', 'gligen-generation-text-box.pth')
     config = torch.load(cache_config, map_location='cpu')
     config = OmegaConf.create(config["_content"])
     config.update(
         {'folder': 'create_samples', 'official_ckpt': 'ckpts/sd-v1-4.ckpt', 'guidance_scale': 5, 'alpha_scale': 1})
     config.model['params']['is_inpaint'] = False
     config.model['params']['is_style'] = True
-    loaded_model_list = GLIGEN.load_ckpt(config, pretrained_ckpt_gligen)
+    loaded_model_list = GLIGEN_generation.load_ckpt(config, pretrained_ckpt_gligen)
     # phrase_list = []
     # placeholder_image = Image.open('images/teddy.jpg').convert("RGB")
     # image_list = [placeholder_image] * len(phrase_list)
@@ -84,8 +112,9 @@ def image_generation(prompt="a black swan swimming in a pond surrounded by green
                        phrases=['placeholder'], has_text_mask=1, has_image_mask=0,
                        images=[], alpha_type=[0.3, 0, 0.7], guidance_scale=7.5, fix_seed=True,
                        rand_seed=0, actual_mask=None, inpainting_boxes_nodrop=None, locations=[])
-    sample_list, over_list = GLIGEN.grounded_generation_box(loaded_model_list, instruction)
+    sample_list, over_list = GLIGEN_generation.grounded_generation_box(loaded_model_list, instruction)
     image_path = save_image_to_local(sample_list[0])
+    print(f'Generated image save into {image_path}')
     return image_path
 
 
@@ -94,16 +123,21 @@ def image_segmentation(image_path, track_text, sketch_pad=None):
     Based on the input image, we segment the image and return the segmented image.
     Args:
         image (Image): The input image.
-        reftxt (str): The reference text.
+        track_text (str): The reference text.
+        sketch_pad (Dict):
+            ['image']: array
+            ['mask']: array
     Returns:
         Image: The segmented image.
     """
     print('Calling SEEM_app.inference')
-    sys.path.append(os.path.join(os.environ['BASE_HOME'], 'SEEM/demo_code'))
-    import SEEM.demo_code.app as SEEM
-    import SEEM.demo_code.utils.visualizer as visual
+    # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'SEEM/demo_code'))
+    # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'SEEM/demo_code/tasks'))
+    # import SEEM.demo_code.app as SEEM
+    # import SEEM.demo_code.utils.visualizer as visual
+    # # import SEEM.demo_code.tasks.visualizer as visual
 
-    img = Image.open(image_path)
+    img = open_image(image_path)
     width, height = img.size
     if len(track_text) == 0 and sketch_pad is None:
         # segment all
@@ -115,15 +149,26 @@ def image_segmentation(image_path, track_text, sketch_pad=None):
     elif track_text:
         if sketch_pad is None:
             compose_img = {'image': img, 'mask': img}
+            task = ['Text']
         else:
-            compose_img = sketch_pad
-        task = ['Text']
+            compose_img = {'image': open_image(sketch_pad['image']), 'mask': sketch_pad['image']}
+            # print('image segmentation / sketch_pad', sketch_pad)  # sketch_pad['image']: array,  sketch_pad['mask']: array
+            width, height = compose_img['image'].width, compose_img['image'].height
+            task = ['Stroke']
+        # task = ['Stroke']
         image, masks, labels = SEEM.inference(image=compose_img, task=task, reftxt=track_text)
-
+        # print('image', image)
+        # print('masks', masks)
+        # print('labels', labels)
         mask_pred = masks[0].astype("uint8")
         mask_pred = cv2.resize(mask_pred, (width, height), interpolation=cv2.INTER_LANCZOS4)
         mask_pred = mask_pred.astype("uint8")
+        print('mask_pred: ', mask_pred)
+        # print('mask shape: ', len(mask_pred), len(mask_pred[0]))
+        # print('height: ', height)
+        # print('width: ', width)
         mask_demo = visual.GenericMask(mask_pred, height, width)
+        # print('mask_demo: ', mask_demo)
         bbox = mask_demo.bbox()
         mask = {'mask': mask_pred, 'boxes': bbox}
         return image[0], mask, labels
@@ -146,20 +191,21 @@ def image_editing(image_path="black-swan.png", sketch_pad=None,
     :return: generate image with 512X512 resolution
     """
     # prompt="change the color of the swimming swan into blue"):
-    sys.path.append(os.path.join(os.environ['BASE_HOME'], 'GLIGEN/demo'))
-    import GLIGEN.demo.app as GLIGEN
-    image = Image.open(image_path)
+    # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'GLIGEN/demo'))
+    # import GLIGEN.demo.app as GLIGEN
+    image = open_image(image_path)
     width, height = image.size
     text = prompt
     texts = [x.strip() for x in text.split(';')]
     boxes = []
     masks = []
-    for t in texts:
-        _, t_mask, _ = image_segmentation(image_path=image_path, track_text=t)
-        boxes.append(t_mask['boxes'])
-        masks.append(t_mask['mask'])
-    state = {'boxes': boxes}
     if sketch_pad is None:
+        # if there is no sketch_pad, i.e., no specification for image editing. Thus, first segmenting the image based on text， then inpainting the image
+        for t in texts:
+            _, t_mask, _ = image_segmentation(image_path=image_path, track_text=t)
+            boxes.append(t_mask['boxes'])
+            masks.append(t_mask['mask'])
+        state = {'boxes': boxes}
         merged_mask = np.zeros((height, width))
         print(merged_mask.shape)
         for mask in masks:
@@ -173,17 +219,21 @@ def image_editing(image_path="black-swan.png", sketch_pad=None,
                                                  inpainting_image=image
                                                  )
     else:
+        boxes = mask_to_bbox(sketch_pad['mask'])
+        state = {'boxes': [boxes]}
+        print('state: ', state)
         gen_images, state_list = GLIGEN.generate(task='Grounded Inpainting', language_instruction=prompt,
                                                  sketch_pad=sketch_pad,
                                                  grounding_texts=prompt, alpha_sample=1.0, guidance_scale=30,
                                                  batch_size=1, fix_seed=False, rand_seed=0, use_actual_mask=False,
                                                  append_grounding=False,
                                                  style_cond_image=None, state=state, inpainting_mask=None,
-                                                 inpainting_image=None
+                                                 inpainting_image=image
                                                  )
 
     # gen_images[0].save(save_path)
     image_path = save_image_to_local(gen_images[0])
+    print(f'Generated image save into {image_path}')
     return image_path, state_list
 
 
@@ -200,22 +250,25 @@ def video_generation(prompt,
         num_frames (int): The number of frames.
         guidance_scale (float): The guidance scale.
     """
-    sys.path.append(os.path.join(os.environ['BASE_HOME'], 'Zeroscope'))
-    pipe = DiffusionPipeline.from_pretrained("Zeroscope/zeroscope_v2_576w", torch_dtype=torch.float16)
+    # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'Zeroscope'))
+    pipe = DiffusionPipeline.from_pretrained("checkpoints/zeroscope", torch_dtype=torch.float16)
     pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
     pipe.enable_model_cpu_offload()
 
-    prompt = prompt
+    # prompt = prompt
     video_frames = pipe(prompt, num_inference_steps=num_inference_steps, 
                         guidance_scale=guidance_scale,
                         height=320, width=576, 
-                        num_frames=num_frames).frames
+                        num_frames=num_frames).frames[0]
+    # print('video_frames: ', video_frames)
+    video_frames = [np.array(frame) for frame in video_frames]
     video_path = save_video_to_local(video_frames)
+    print(f'Generated video save into {video_path}')
     # video_path = export_to_video(video_frames, f"{save_dir}/video.mp4")
     return video_path
 
 
-def video_tracking(video_path="vasedeck.mp4", sketchpad=None, track_prompt="", text_prompt=""):
+def video_tracking(video_path="vasedeck.mp4", sketch_pad=None, track_prompt="", text_prompt=""):
     """
     Based on the input video, we track the video and return the tracked video.
     Args:
@@ -223,20 +276,22 @@ def video_tracking(video_path="vasedeck.mp4", sketchpad=None, track_prompt="", t
         track_text (str): The track text.
         sketch_pad (dict): The sketchpad input with format {'image': Image, 'mask': Image}.
         track_prompt (str): The track prompt.
-        text_prompt (str): The text prompt.
+        text_prompt (str): The text prompt.  
+            if no sketchpad, the text prompt is used to segment the image, obtaining the foreground images.
     Returns:
         str: The tracked video path.
     """
-    sys.path.append(os.path.join(os.environ['BASE_HOME'], 'SEEM/demo_code'))
-    import SEEM.demo_code.app as SEEM
-    if sketchpad is None:
+    # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'SEEM/demo_code'))
+    # import SEEM.demo_code.app as SEEM
+    if sketch_pad is None:
         i_video_path = video_path.split('/')[-2]
         img, o = video_editing(video_path=i_video_path, fore_prompt=text_prompt, back_prompt="")
         image_path = save_image_to_local(img)
         img = Image.open(image_path)
         compose_img = {'image': img, 'mask': img}
     else:
-        compose_img = sketchpad
+        # compose_img = sketch_pad
+        compose_img = {'image': open_image(sketch_pad['image']), 'mask': sketch_pad['image']}
 
     _, output_video_name = SEEM.inference("SEEM/demo_code/examples/placeholder.png", task=['Video'],
                                           video_pth=video_path, refimg=compose_img, reftxt=track_prompt)
@@ -247,12 +302,22 @@ def video_editing(video_path="The_test_new_video.mp4", fore_prompt="turn the ora
                back_prompt="change the background into the blue"):
     """
 
-    :param video_path (str): Path of the video to be modified
+    :param video_path (str): directory of the video to be modified. The file structure shoud be like this
+        ./data/xxx
+            -- checkpoint
+            -- config.json
+            -- xxx.mp4
+            -- texture.orig1.png
+            -- texture.orig2.png
+            -- xxx
+                -- 00000.jpg
+                -- 00001.jpg
+
     :param fore_prompt (str): prompt for modifying foreground, such as "turn the orange into bread"
     :param back_prompt (str): prompt for modifying background, such as "change the background into the blue"
     """
-    sys.path.append(os.path.join(os.environ['BASE_HOME'], 'StableVideo'))
-    import StableVideo.app as stablevideo
+    # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'StableVideo'))
+    # import StableVideo.app as stablevideo
 
     st = stablevideo.StableVideo(base_cfg="StableVideo/ckpt/cldm_v15.yaml",
                                  canny_model_cfg="StableVideo/ckpt/control_sd15_canny.pth",
@@ -263,7 +328,7 @@ def video_editing(video_path="The_test_new_video.mp4", fore_prompt="turn the ora
                         canny_model_cfg='StableVideo/ckpt/control_sd15_canny.pth')
     st.load_depth_model(base_cfg='StableVideo/ckpt/cldm_v15.yaml',
                         depth_model_cfg='StableVideo/ckpt/control_sd15_depth.pth', )
-    video_save_name, f_atlas_origin, b_altas_origin = st.load_video(video_name=video_path)
+    video_save_name, f_atlas_origin, b_altas_origin = st.load_video(video_path=video_path, video_name=os.path.basename(video_path))
     print(video_save_name)
 
     f_atlas = st.advanced_edit_foreground(prompt=fore_prompt)
@@ -281,8 +346,8 @@ def image_to_video(image_path='street.png',
     """
     Based on the input image and text prompt, we generate the corresponding video.
     """
-    sys.path.append(os.path.join(os.environ['BASE_HOME'], 'i2vgen-xl'))
-    pipe = I2VGenXLPipeline.from_pretrained("i2vgen-xl/checkpoints", torch_dtype=torch.float16, variant="fp16")
+    # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'i2vgen-xl'))
+    pipe = I2VGenXLPipeline.from_pretrained("checkpoints/i2vgen-xl", torch_dtype=torch.float16, variant="fp16")
     pipe.enable_model_cpu_offload()
 
     image = Image.open(image_path).convert("RGB")
@@ -298,32 +363,13 @@ def image_to_video(image_path='street.png',
         guidance_scale=9.0,
         generator=generator
     ).frames[0]
-    # print(frames)
-    # save 
-    # for idx, img in enumerate(frames):
-    #     img.save(f'{save_dir}/000{idx}.jpg')
-    # video_path = export_to_gif(frames, f"{save_dir}/street.gif")
-    # video_path = export_to_video(frames, f"{save_dir}/street_1.mp4")
     video_path = save_video_to_local(frames)
+    print(f'Generated video save into {video_path}')
     return video_path
-    # print(video_path)
-  
-
-def load_model(model_base, model_path, model_name='vitron-7b-lora'):
-    disable_torch_init()
-    cache_dir = 'cache_dir'
-    device = 'cuda'
-    load_4bit, load_8bit = False, False
-    tokenizer, model, processor, _ = load_pretrained_model(model_path, model_base, model_name, load_8bit, load_4bit, device=device, cache_dir=cache_dir)
-    image_processor = processor['image']
-    video_processor = processor['video']
-    conv_mode = "llava_v1"
-    conv = conv_templates[conv_mode].copy()
-    return tokenizer, model, image_processor, video_processor, conv
 
 
 def find_module_content(data):
-    pattern = r'<Module>(.*?)</Module>'
+    pattern = r'<module>(.*?)</module>'
     match = re.search(pattern, data)
     if match:
         return match.group(1)
@@ -332,15 +378,20 @@ def find_module_content(data):
 
 
 def find_instruction_content(data):
-    pattern = r'<Instruction>(.*?)</Instruction>'
-    match = re.search(pattern, data)
+    pattern = r'<instruction>(.*?)</instruction>'
+    match = re.findall(pattern, data)
+    
     if match:
-        return match.group(1)
+        res = []
+        for _res in match:
+            res.append(_res.split(':')[-1].strip())
+        return res
     else:
         return None
 
+
 def find_region_instrction_content(data):
-    pattern = r'<Region>(.*?)</Region>'
+    pattern = r'<region>(.*?)</region>'
     match = re.search(pattern, data)
     if match:
         return match.group(1)
@@ -349,13 +400,16 @@ def find_region_instrction_content(data):
 
 
 def remove_special_tags(text):
-    pattern = r'<[^>]+>'  # match all the tags
+    """
+    remove the content between the tags and also the tags: <module></module> <instruction></instruction> <region></region> <SP></SP>
+    """
+    pattern = r'<[^>]+>(.*?)<[^>]+>'  # match all the tags
     return re.sub(pattern, '', text)
 
 
 def parse_model_output(model_output):
     """
-    Based on the model output, we parse the model output and return the parsed instrcutions.
+    Based on the model output, we parse the model output and return the parsed instructions.
     Args:
         model_output (str): The model output.
     """
@@ -384,141 +438,259 @@ def get_utterence(query, video_processor, image_processor):
     """
     Based on the query, we compose the corresponding utterence.
     Args:
-        query (list): The input query. query[0]-> text, query[1]-> video, query[2]-> image
+        query (list): The input query. query[0]-> text, query[1]-> image, query[2]-> video
         video_processor (VideoProcessor): The video processor.  
         image_processor (ImageProcessor): The image processor.
     """
     res_utterance = ''
     video_tensor = None
     image_tensor = None
+    region = None
     if query[1] is not None and query[2] is not None:
         # input includes video and image
-        res_utterance = DEFAULT_VIDEO_TOKEN + ' ' + DEFAULT_IMAGE_TOKEN + '\n' + query[0]
-        video_tensor = video_processor(query[1], return_tensors='pt')['pixel_values']
-        image_tensor = image_processor.preprocess(query[2], return_tensors='pt')['pixel_values']
+        res_utterance = ' '.join([DEFAULT_IMAGE_TOKEN] * model.get_video_tower().config.num_frames) + ' ' + DEFAULT_IMAGE_TOKEN + '\n' + query[0]
+        image_tensor = image_processor.preprocess(query[1], return_tensors='pt')['pixel_values'][0]
+        video_tensor = video_processor(query[2], return_tensors='pt')['pixel_values']
+        region = query[3]
     elif query[1] is not None and query[2] is None:
-        # input includes video but no image
-        res_utterance = DEFAULT_VIDEO_TOKEN + '\n' + query[0]
-        video_tensor = video_processor(query[1], return_tensors='pt')['pixel_values']
-    elif query[1] is None and query[2] is not None:
-            # input includes no video but image
+        # input includes image but no video
         res_utterance = DEFAULT_IMAGE_TOKEN + '\n' + query[0]
-        video_tensor = video_processor(query[1], return_tensors='pt')['pixel_values']
+        image_tensor = image_processor.preprocess(query[1], return_tensors='pt')['pixel_values'][0]
+        region = query[3]
+    elif query[1] is None and query[2] is not None:
+        # input includes no image but video
+        res_utterance = ' '.join([DEFAULT_IMAGE_TOKEN] * model.get_video_tower().config.num_frames) + '\n' + query[0]
+        video_tensor = video_processor(query[2], return_tensors='pt')['pixel_values'][0]
+        region = query[3]
     else:
         # input includes no video but image
         res_utterance = query[0]
-    return res_utterance, video_tensor, image_tensor
+    return res_utterance, video_tensor, image_tensor, region
 
 
-def re_predict(tokenizer, model, image_processor, video_processor, conv,
-             history, chatbox, user_input, 
-             input_image_state, input_image, out_imagebox,
-             input_video_state, input_video, video_sketch_pad,
+def re_predict(user_input, input_image_state, input_image, out_imagebox,
+             input_video_state, input_video, video_sketch_pad, history, chatbox, 
             configs):
     q, a = history.pop()
     chatbox.pop()
-    return predict(tokenizer, model, image_processor, video_processor, conv,
-             history, chatbox, q, 
-             input_image_state, input_image, out_imagebox,
-             input_video_state, input_video, video_sketch_pad,
+    return predict(q, input_image_state, input_image, out_imagebox,
+             input_video_state, input_video, video_sketch_pad, history, chatbox, 
             configs)
 
-def predict(tokenizer, model, image_processor, video_processor, conv,
-             history, chatbox, user_input, 
-             input_image_state, input_image, out_imagebox,
-             input_video_state, input_video, video_sketch_pad,
-            configs):
+
+def predict(user_input, input_image_state, input_image, out_imagebox,
+            input_video_state, input_video, video_sketch_pad, history, chatbox, 
+            *args):
     """
     Based on the user input and history, we generate the response and update the history.
+    Args:
+        tokenizer (Tokenizer): 
+            The tokenizer for process user input instructions.
+        model (Model): The model.
+        image_processor (ImageProcessor): 
+            The image processor for process image.
+        video_processor (VideoProcessor): 
+            The video processor for process video.
+        conv(Conversation): Conversation class.
+        history (list): 
+            The history. [[(q1, v1, i1), (a1, v1, i1)], [(q2, v2, i2), (a2, v2, i2)]
+        chatbox (list): The chatbox.
+        input_image_state (dict): {'ibs': ImageBoxState}.
+            Saving the image state including the image, box and mask.
+        input_image (Numpy.ndarray): 
+            The input image.
+        out_imagebox (dict): 
+            The output image box. {'image': Numpy.ndarray, 'mask': Numpy.ndarray}.
+        input_video_state (dict): {'ibs': ImageBoxState}.
+            Saving the video state including the video frame list, current frame, box and mask.
+        input_video (str): 
+            The file path of input video.
+        video_sketch_pad (dict): 
+            The video sketch pad of each frame. {'image': Numpy.ndarray, 'mask': Numpy.ndarray}.
+        configs (dict): The configurations.
+
     """
+    video_tensors = []
+    image_tensors = []
+    input_region = []
+    config = create_cfg(*args)
     if history is not None:
-        video_tensors = []
-        image_tensors = []
-        for idx, (q, a) in enumerate(history):
-            q_utterance, q_video_tensor, q_image_tensor = get_utterence(q, video_processor, image_processor)
+        print('history: ', history)
+        default_input_region = [0, 0, 224, 224]
+        for idx, _his in enumerate(history):
+            print(f'idx: {idx},  history[idx]: {_his}')
+            q, a = _his
+            q_utterance, q_video_tensor, q_image_tensor, q_region = get_utterence(q, video_processor, image_processor)
             conv.append_message(conv.roles[0], q_utterance)
-            a_utterance, a_video_tensor, a_image_tensor = get_utterence(a, video_processor, image_processor)
+            a_utterance, a_video_tensor, a_image_tensor, a_region = get_utterence(a, video_processor, image_processor)
             conv.append_message(conv.roles[1], a_utterance)
             if q_video_tensor is not None:
                 video_tensors.append(q_video_tensor)
+                input_region.append(q_region)
             if q_image_tensor is not None:
                 image_tensors.append(q_image_tensor)
+                input_region.append(q_region)
             if a_video_tensor is not None:
                 video_tensors.append(a_video_tensor)
+                input_region.append(q_region)
             if a_image_tensor is not None:
                 image_tensors.append(a_image_tensor)
+                input_region.append(a_region)
         
     inp = ''
-    _user_input = ''
-    if input_video_state.image is not None:
-        inp += DEFAULT_VIDEO_TOKEN
-        video_tensors.append(video_processor(input_video, return_tensors='pt')['pixel_values'])
+    _user_input = user_input
+    query_img_path = ''
+    if input_video is not None:
+        inp = inp + ' '.join([DEFAULT_IMAGE_TOKEN] * model.get_video_tower().config.num_frames)
+        video_tensors.append(video_processor(input_video, return_tensors='pt')['pixel_values'][0])  # 'input_video' should be a file_path
         _user_input += f'<br><video controls playsinline width="500" style="display: inline-block;"  src="./file={input_video}"></video>'
-    if input_image_state.image is not None:
+        input_region.append(default_input_region)
+    if input_image_state['ibs'].image is not None:
         inp = inp + ' ' + DEFAULT_IMAGE_TOKEN
-        image_tensors.append(image_processor.preprocess(input_image_state.image, return_tensors='pt')['pixel_values'])
-        _user_input += f'<img src="./file={input_image_state.image}" style="display: inline-block;width: 250px;max-height: 400px;">'
-    inp = inp + '\n' + user_input
+        image_tensors.append(image_processor.preprocess(input_image_state['ibs'].image, return_tensors='pt')['pixel_values'][0])
+        if len(input_image_state['ibs'].boxes) > 0:
+            bbox = input_image_state['ibs'].boxes[-1]
+            input_region.append(bbox)
+            ori_im_size = [input_image_state['ibs'].width, input_image_state['ibs'].height]
+            input_region = [preprocess_region(_bbox, ori_im_size, [224, 224]) for _bbox in input_region]
+            inp = inp + '\n' + DEFAULT_OBJS_TOKEN + ' '
+        else:
+            input_region.append(default_input_region)
+        query_img_path = save_image_to_local(input_image_state['ibs'].image)
+        _user_input += f'<br><img src="./file={query_img_path}" style="display: inline-block;width: 250px;max-height: 400px;">'
+    inp = inp + '\n' + user_input if inp.endswith('>') else inp + user_input
+    print('inp: ', inp)
     conv.append_message(conv.roles[0], inp)
+    conv.append_message(conv.roles[1], None)
     prompt = conv.get_prompt()
+    conv.clear_message()
 
-    input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt").unsqueeze(0).cuda()
+    print('prompt: ', prompt)
+
+    # input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt").unsqueeze(0).cuda()
+    input_ids = tokenizer_image_region_token(prompt, tokenizer, OBJS_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).cuda()
     stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
     keywords = [stop_str]
     stopping_criteria = KeywordsStoppingCriteria(keywords, tokenizer, input_ids)
+    # print('video_tensors: ', video_tensors)
+    # print('image_tensors: ', image_tensors[0].shape)
+    print('len(input_region): ', len(input_region))
+    print('len(image_tensors): ', len(image_tensors))
+    print('len(video_tensors): ', len(video_tensors))
+    if len(image_tensors) == 0 and len(video_tensors) == 0:
+        # no image or video input 
+        tensor = [torch.zeros(3, image_processor.crop_size['height'], image_processor.crop_size['width']).to(model.device, dtype=torch.float16)]
+        input_region = [default_input_region]
+    else:
+        tensor =  [_tensor.to(model.device, dtype=torch.float16) for _tensor in video_tensors+image_tensors]
+        assert len(input_region) == len(tensor)
     with torch.inference_mode():
         output_ids = model.generate(
             input_ids,
-            images=video_tensors+image_tensors,
-            # regions = region,
+            images=tensor,
+            regions = input_region,
             do_sample=True,
-            temperature=0.1,
+            temperature=config['temperature'],
+            top_p = config['top_p'],
             max_new_tokens=1024,
             use_cache=True,
             stopping_criteria=[stopping_criteria])
     outputs = tokenizer.decode(output_ids[0, input_ids.shape[1]:]).strip()
+    print('model outputs: ', outputs)
+    # outputs = 'Absolutely! Picture this beautiful moment captured in an image: a majestic gray wolf, its fur glistening under the winter sun, frolicking in the fresh snow with its dedicated keeper. The wolf seems completely at ease, displaying trust and camaraderie as they engage in their playful interaction.<module>A</module> <instruction>generation: gray wolf , keeper rollicking about in the snow with a socialised </instruction>'  # image generation
+    # outputs = 'Yes, I can help identify the zebra that seems to be at the greatest distance. <module>B</module> <instruction>segmentation: zebra farthest from you</instruction>'  # image segmentation
+    # outputs = 'Sure thing! I\'m going to replace the transport train with a passenger train in the designated area. <module>C</module> <instruction>generation: a passenger train</instruction>'  # image editing
+    # outputs = 'Absolutely! I have just the video for you. It features a middle-aged woman engaging in sport yoga exercises alongside her adorable toddler son. They create a wonderful example of a healthy lifestyle, promoting fitness and the importance of family bonding. Enjoy the video!<module>D</module> <instruction>generation: Middle aged woman mother doing sport yoga exercises together with her little son toddler boy at home. healthy lifestyle </instruction>'  # video generation
+    # outputs = 'Absolutely! From the video you\'ve provided, a travel blogger is shooting a story on top of the mountains, and a young man is holding a camera in the forest. Additionally, the image shows a pine forest amongst the mountains. I will now commence tracking the pine forest throughout the video. <module>E</module> <instruction>generation: pine forest</instruction>'  # video segmentation
+    # outputs = 'Absolutely! In the video, a muscular man is performing a fire show with two rotating fireballs on a chain. I will edit the video to make it look like the man has wings and is performing the fire show in the sky. <module>F</module> <instruction> foreground: add wings to the man and position him in the sky </instruction> <instruction> background: keep </instruction> <SP>None</SP>'  # video editing
+    # outputs = 'Absolutely! Your image features a joyful little girl in a pink dress sitting on the floor with her legs crossed. I will proceed to perform the image-to-video conversion. <module>G</module> <instruction> generation: happy little girl in pink dress sitting with crossed legs on the floor </instruction>'  # image-to-video segmentation
     output, module, instruction, region = parse_model_output(outputs)
-    
+    print('parsed output: ', output)
+    print('module: ', module)
+    print('instruction: ', instruction)
+    print('region: ', region)
+    # _user_input = None
+    if input_image_state['ibs'].image is not None:
+        query_img_path = save_image_to_local(input_image_state['ibs'].image)
+    else:
+        query_img_path = None
+
     if module and module in tasks:
         if module == 'A':
-            image_path = image_generation(prompt=instruction)
-            _response = output + f'<br><img src="./file={image_path}" style="display: inline-block;width: 250px;max-height: 400px;">'
+            if instruction is not None and len(instruction) > 0:
+                ans_image_path = image_generation(prompt=instruction[0])
+                _response = output + f'<br><img src="./file={ans_image_path}" style="display: inline-block;width: 250px;max-height: 400px;">'
+            else:
+                _response = output
+                ans_image_path = None 
             chatbox.append((_user_input, _response))
-            history.append(((user_input, input_video, input_image_state.image), (output, None, image_path)))
+            history.append(((user_input, query_img_path, input_video, input_region[-1]), (output, ans_image_path, None, default_input_region)))
         elif module == 'B':
-            image_seg, pad, label = image_segmentation(image_path=input_image_state.image, track_text=instruction,
-                                                        sketch_pad=out_imagebox)
-            image_path = save_image_to_local(image_seg)
-            _response = output + f'<br><img src="./file={image_path}" style="display: inline-block;width: 250px;max-height: 400px;">'   
+            if instruction is not None and len(instruction) > 0:
+                image_seg, pad, label = image_segmentation(image_path=query_img_path, track_text=instruction[0],
+                                                            sketch_pad=input_image)
+                ans_image_path = save_image_to_local(image_seg)
+                _response = output + f'<br><img src="./file={ans_image_path}" style="display: inline-block;width: 250px;max-height: 400px;">'
+            else:
+                _response = output
+                ans_image_path = None   
+            print(f'image file save into {ans_image_path}')
             chatbox.append((_user_input, _response))    
-            history.append(((user_input, input_video, input_image_state.image), (output, None, image_path)))
+            history.append(((user_input, query_img_path, input_video, input_region[-1]), (output, ans_image_path, None, default_input_region)))
         elif module == 'C':
-            image_path, _ = image_editing(image_path=input_image_state.image, sketch_pad=out_imagebox, prompt=instruction)
-            _response = output + f'<br><img src="./file={image_path}" style="display: inline-block;width: 250px;max-height: 400px;">'
+            if instruction is not None and len(instruction) > 0:
+                ans_image_path, _ = image_editing(image_path=query_img_path, sketch_pad=input_image, prompt=instruction[0])
+                _response = output + f'<br><img src="./file={ans_image_path}" style="display: inline-block;width: 250px;max-height: 400px;">'
+            else:
+                _response = output
+                ans_image_path = None
             chatbox.append((_user_input, _response))
-            history.append(((user_input, input_video, input_image_state.image), (output, None, image_path)))
+            history.append(((user_input, query_img_path, input_video, input_region[-1]), (output, ans_image_path, None, default_input_region)))
         elif module == 'D':
-            video_path = video_generation(prompt=instruction)
-            _response = output + f'<br><video controls playsinline width="500" style="display: inline-block;"  src="./file={video_path}"></video>'
+            if instruction is not None and len(instruction) > 0:
+                ans_video_path = video_generation(prompt=instruction[0], num_inference_steps=config['num_inference_steps_for_vid'], num_frames=config['num_frames'],  guidance_scale=config['guidance_scale_for_vid'])
+                _response = output + f'<br><video controls playsinline width="500" style="display: inline-block;"  src="./file={ans_video_path}"></video>'
+            else:
+                _response = output
+                ans_image_path = None
             chatbox.append((_user_input, _response))
-            history.append(((user_input, input_video, input_image_state.image), (output, video_path, None)))
+            history.append(((user_input, query_img_path, input_video, input_region[-1]), (output, None, ans_video_path, default_input_region)))
         elif module == 'E':
-            video_path = video_tracking(video_path=input_video, sketchpad=video_sketch_pad, track_prompt=instruction)
-            _response = output + f'<br><video controls playsinline width="500" style="display: inline-block;"  src="./file={video_path}"></video>'
+            query_img_path = save_image_to_local(input_video_state['ibs'].image)
+            if instruction is not None and len(instruction) > 0:
+                # target_video_path = os.path.join('./temp', os.path.basename(input_video))
+                # cp_cmd = 'cp {} {}'.format(input_video, target_video_path)
+                # os.system(cp_cmd)
+                ans_video_path = video_tracking(video_path=input_video, sketch_pad=video_sketch_pad, track_prompt=instruction[0])
+                _response = output + f'<br><video controls playsinline width="500" style="display: inline-block;"  src="./file={ans_video_path}"></video>'
+            else:
+                _response = output
+                ans_video_path = None
             chatbox.append((_user_input, _response))
-            history.append(((user_input, input_video, input_image_state.image), (output, video_path, None)))
+            history.append(((user_input, query_img_path, input_video, input_region[-1]), (output, None, ans_video_path, default_input_region)))
         elif module == 'F':
-            _, video_path = video_editing(video_path=input_video, fore_prompt=instruction, back_prompt=instruction)
-            _response = output + f'<br><video controls playsinline width="500" style="display: inline-block;"  src="./file={video_path}"></video>'
+            if instruction is not None and len(instruction) >= 2:
+                _, ans_video_path = video_editing(video_path=input_video, fore_prompt=instruction[0], back_prompt=instruction[1])
+                _response = output + f'<br><video controls playsinline width="500" style="display: inline-block;"  src="./file={ans_video_path}"></video>'
+            else:
+                _response = output
+                ans_video_path = None
             chatbox.append((_user_input, _response))
-            history.append(((user_input, input_video, input_image_state.image), (output, video_path, None)))
+            history.append(((user_input, query_img_path, input_video, input_region[-1]), (output, None, ans_video_path, default_input_region)))
         elif module == 'G':
-            video_path = image_to_video(image_path=input_image_state.image, text_prompt=instruction)
-            _response = output + f'<br><video controls playsinline width="500" style="display: inline-block;"  src="./file={video_path}"></video>'
+            if instruction is not None and len(instruction) > 0:
+                ans_video_path = image_to_video(image_path=query_img_path, text_prompt=instruction[0])
+                _response = output + f'<br><video controls playsinline width="500" style="display: inline-block;"  src="./file={ans_video_path}"></video>'
+            else:
+                _response = output
+                ans_video_path = None
             chatbox.append((_user_input, _response))
-            history.append(((user_input, input_video, input_image_state.image), (output, video_path, None)))
+            history.append(((user_input, query_img_path, input_video, input_region[-1]), (output, None, ans_video_path, default_input_region)))
         else:
             raise NotImplementedError(f'The module {module} is not implemented.')
+    else:
+        chatbox.append((_user_input, output))
+        history.append(((user_input, query_img_path, input_video, input_region[-1]), (output, None, None, default_input_region)))
 
     return chatbox, history, None, None, None, None
 
@@ -534,6 +706,15 @@ def clear_fn2(value):
     return default_chatbox, None, new_state()
 
 
+def upload_image(sketch_pad: dict, state: dict):
+    image = sketch_pad['image']  
+    # print('sketch_pad', sketch_pad)  # {'image': array unit8, 'mask': array unit8}
+    image = open_image(image)
+    ibs = state["ibs"]
+    ibs.update_image(image)
+    return image, state
+
+
 def reset_state(input_image_state, input_video_state):
     ibs = input_image_state["ibs"]
     ibs.reset_state()
@@ -541,8 +722,26 @@ def reset_state(input_image_state, input_video_state):
     ibs = input_video_state["ibs"]
     ibs.reset_state()
 
-    return None, None, None, None, [], [], []
+    return None, None, None, None, None, [], [], []
 
+
+def create_cfg(seed, top_p, temperature,
+            guidance_scale_for_img_edit, num_inference_steps_for_img_edit,
+            guidance_scale_for_vid, num_inference_steps_for_vid, num_frames, 
+            num_inference_steps_for_vid_edit, guidance_scale_for_vide_edit):
+    cfg_dict = {
+        "seed": seed,
+        "top_p": top_p,
+        "temperature": temperature,
+        "guidance_scale_for_img_edit":guidance_scale_for_img_edit, 
+        "num_inference_steps_for_img_edit": num_inference_steps_for_img_edit,
+        "guidance_scale_for_vid": guidance_scale_for_vid,
+        "num_inference_steps_for_vid": num_inference_steps_for_vid,
+        "num_frames": num_frames,
+        "num_inference_steps_for_vid_edit": num_inference_steps_for_vid_edit,
+        "guidance_scale_for_vide_edit": guidance_scale_for_vide_edit
+    }
+    return cfg_dict
 
 def extract_frames(value, state: dict):
     """
@@ -630,8 +829,33 @@ def clear_image_and_sketch_pad(state):
 def clear_input(image_state, video_state):
     image_state["ibs"].reset_state()
     video_state["ibs"].reset_state()
-    return image_state, video_state, None, None, None, None
-    
+    return image_state, video_state, None, None, None, None, None
+
+
+class ImageMask(gr.components.Image):
+    """
+    Sets: source="canvas", tool="sketch"
+    """
+
+    is_template = True
+
+    def __init__(self, **kwargs):
+        super().__init__(source="upload", tool="sketch", interactive=True, **kwargs)
+
+    def preprocess(self, x):
+        if isinstance(x, str):
+            x = {'image': x, 'mask': x}
+        elif isinstance(x, dict):
+            if (x['mask'] is None and x['image'] is None):
+                x
+            elif (x['image'] is None):
+                x['image'] = str(x['mask'])
+            elif (x['mask'] is None):
+                x['mask'] = str(x['image']) #not sure why mask/mask is None sometimes, this prevents preprocess crashing
+        elif x is not None:
+            assert False, 'Unexpected type {0} in ImageMask preprocess()'.format(type(x))
+
+        return super().preprocess(x)
 
 
 TITLE = """
@@ -656,47 +880,61 @@ def build_demo():
         with gr.Row():
             with gr.Column(scale=7, min_width=500):
                 with gr.Row(): 
-                    chatbot = gr.Chatbot(label='Vitron Chatbot', height=500, elem_id='chatbot', avatar_images=((os.path.join(os.path.dirname(__file__), 'user.png')), (os.path.join(os.path.dirname(__file__), "vitron.png"))))
-                
+                    chatbot = gr.Chatbot(label='Vitron Chatbot', height=500, elem_id='chatbox', avatar_images=((os.path.join(os.path.dirname(__file__), 'user.png')), (os.path.join(os.path.dirname(__file__), "vitron.png"))))
+
                 with gr.Row():
                     user_input = gr.Textbox(label='User Input', placeholder='Enter your text here', elem_id='user_input', lines=3)  
                 
                 with gr.Row():
                     with gr.Column(scale=3):
-                        with gr.Row():
-                            input_image = gr.Image(label='Input Image', type='numpy',
-                                                    shape=(512, 512), 
-                                                    # height=200, width=200, 
-                                                    elem_id='img2img_image', 
-                                                    interactive=True, tool='sketch', 
-                                                    brush_radius=20.0, visible=True)
-                        with gr.Row():
-                            clearImageBtn = gr.Button("Clear Image and Sketch Pad", elem_id='clear_image')
-                    with gr.Column(scale=3):
-                        with gr.Row():
-                            input_video = gr.Video(label='Input Video', format='mp4', visible=True)  #.style(height=200) # , value=None, interactive=True
-                        with gr.Row():
-                            with gr.Column():
-                                nextFrameBtn = gr.Button("Next Frame", elem_id='next_frmame', variant="primary")
-                            with gr.Column(scale=1):
-                                clearFrameBtn = gr.Button("Clear Video and Frame", elem_id='clear_frmame')
-                
-                with gr.Row():
-                    with gr.Column(scale=3):
-                        out_imagebox = gr.Image(label='Parsed Sketch Pad"', type='numpy',
+                        with gr.Tab('🏞️ Image'):
+                            with gr.Row():
+                                # input_image = gr.Image(label='Input Image', type='numpy',
+                                #                         shape=(512, 512), 
+                                #                         # height=200, width=200, 
+                                #                         elem_id='img2img_image', 
+                                #                         interactive=True, tool='sketch', 
+                                #                         brush_radius=20.0, visible=True)
+                                input_image = ImageMask(label="Input Image", type="numpy",
+                                                        shape=(512, 512), 
+                                                        # height=200, width=200, 
+                                                        elem_id='img2img_image',
+                                                        # tool='sketch', 
+                                                        brush_radius=20.0, visible=True)
+                            with gr.Row():
+                                clearImageBtn = gr.Button("Clear Image and Sketch Pad", elem_id='clear_image')
+                            with gr.Row():
+                                out_imagebox = gr.Image(label='Parsed Sketch Pad"', type='numpy',
                                                 shape=(512, 512),  
                                                 # height=200, width=200, 
-                                                elem_id='img2img_image')
-                        input_image_state = gr.State(new_state())
+                                                elem_id='out_imagebox')
+                                input_image_state = gr.State(new_state())
+                            
                     with gr.Column(scale=3):
-                        video_sketch_pad = gr.Image(label='Video Frame', type='numpy', 
+                        with gr.Tab('🎬 Video'):
+                            with gr.Row():
+                                input_video = gr.Video(label='Input Video', format='mp4', visible=True)  #.style(height=200) # , value=None, interactive=True
+                            with gr.Row():
+                                with gr.Column(scale=0.3):
+                                    nextFrameBtn = gr.Button("Next Frame", elem_id='next_frmame', variant="primary")
+                                    clearFrameBtn = gr.Button("Clear Video & Frame", elem_id='clear_frmame')
+                                # with gr.Column(scale=0.3):
+                                    
+                            with gr.Row():
+                                # video_sketch_pad = gr.Image(label='Video Frame', type='numpy', 
+                                #                     shape=(512, 512),
+                                #                     # height=200, width=200, 
+                                #                     elem_id='video_sketch_pad', 
+                                #                     interactive=True, tool='sketch', 
+                                #                     brush_radius=20.0, visible=True)
+                                video_sketch_pad = ImageMask(label='Video Frame', type='numpy', 
                                                     shape=(512, 512),
                                                     # height=200, width=200, 
-                                                    elem_id='img2img_image', 
-                                                    interactive=True, tool='sketch', 
+                                                    elem_id='video_sketch_pad', 
+                                                    # interactive=True, tool='sketch', 
                                                     brush_radius=20.0, visible=True)
-                        input_video_state = gr.State(new_state())                     
-
+                                input_video_state = gr.State(new_state()) 
+                
             with gr.Column(scale=3, min_width=300):
                 with gr.Group():
                     seed = gr.Slider(0, 9999, value=1234, label="SEED", interactive=True)
@@ -727,18 +965,20 @@ def build_demo():
                         guidance_scale_for_vid, num_inference_steps_for_vid, num_frames, 
                         num_inference_steps_for_vid_edit, guidance_scale_for_vide_edit
                     ]
-                with gr.Tab("Operation"):
+                with gr.Tab("🎯 Operation"):
                     with gr.Row(scale=1):
                         submitBtn = gr.Button(value="Submit & Run", variant="primary")
                     with gr.Row(scale=1):
                         resubmitBtn = gr.Button("Rerun")
                     with gr.Row(scale=1):
                         emptyBtn = gr.Button("Clear History") 
+                
         # input_image.upload(fn=clear_fn2, inputs=emptyBtn, outputs=[output_text, out_imagebox, input_image_state])
         # input_image.clear(fn=clear_fn2, inputs=emptyBtn, outputs=[output_text, out_imagebox, input_image_state])
 
             history = gr.State([])
 
+        input_image.upload(fn=upload_image, inputs=[input_image, input_image_state], outputs=[out_imagebox, input_image_state])
         input_image.edit(
             fn=bbox_draw,
             inputs=[input_image, input_image_state],
@@ -752,21 +992,19 @@ def build_demo():
         nextFrameBtn.click(fn=select_next_frame, inputs=[input_video_state], outputs=[video_sketch_pad, input_video_state])
         clearFrameBtn.click(fn=clear_video_and_frame, inputs=[input_video_state], outputs=[input_video_state, video_sketch_pad, input_video])
 
-        emptyBtn.click(fn=reset_state, inputs=[input_image_state, input_video_state], outputs=[input_image, out_imagebox, input_video, video_sketch_pad, history, chatbot])
+        emptyBtn.click(fn=reset_state, inputs=[input_image_state, input_video_state], outputs=[user_input, input_image, out_imagebox, input_video, video_sketch_pad, history, chatbot])
         submitBtn.click(fn=predict, 
-                        inputs=[tokenizer, model, image_processor, video_processor, conv, history, chatbot, user_input, 
-                                input_image_state, input_image, out_imagebox,
-                                input_video_state, input_video, video_sketch_pad,
-                                configs], 
-                        outputs=[chatbot, history]).then(clear_input, inputs=[input_image_state, input_video_state], outputs=[input_image_state, input_video_state, input_image, input_video, video_sketch_pad, out_imagebox],
+                        inputs=[user_input, input_image_state, input_image, out_imagebox,
+                                input_video_state, input_video, video_sketch_pad, history, chatbot, *configs
+                                ], 
+                        outputs=[chatbot, history], show_progress=True).then(clear_input, inputs=[input_image_state, input_video_state], outputs=[input_image_state, input_video_state, input_image, input_video, video_sketch_pad, out_imagebox, user_input],
                         show_progress=True
                         )
         resubmitBtn.click(fn=re_predict, 
-                        inputs=[tokenizer, model, image_processor, video_processor, conv, history, chatbot, user_input, 
-                                input_image_state, input_image, out_imagebox,
-                                input_video_state, input_video, video_sketch_pad,
-                                configs], 
-                        outputs=[chatbot, history]).then(clear_input, inputs=[input_image_state, input_video_state], outputs=[input_image_state, input_video_state, input_image, input_video, video_sketch_pad, out_imagebox],
+                        inputs=[user_input, input_image_state, input_image, out_imagebox,
+                                input_video_state, input_video, video_sketch_pad, history, chatbot, 
+                                ], 
+                        outputs=[chatbot, history], show_progress=True).then(clear_input, inputs=[input_image_state, input_video_state], outputs=[input_image_state, input_video_state, input_image, input_video, video_sketch_pad, out_imagebox, user_input],
                         show_progress=True
                         )
     
@@ -777,12 +1015,46 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", type=str, default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--model_path", type=str, default="vitron")
-    parser.add_argument("--model_base", type=str, default='vitron')
-    parser.add_argument("--model_name", type=str, default='vitron')
+    parser.add_argument("--model_path", type=str, default="/root/Vitron_2/Vitron/checkpoints/vitron-7b-lora-6")
+    parser.add_argument("--model_base", type=str, default='/root/Vitron_2/LanguageBind/Video-LLaVA-7B')
+    parser.add_argument("--model_name", type=str, default='vitron-llava-7b-lora-4')
     args = parser.parse_args()
     # LLAVA.set_args(args)
-    tokenizer, model, image_processor, video_processor, conv = load_model(model_path=args.model_path, model_base=args.model_base, model_name=args.model_name)
+    
     demo = build_demo()
     demo.queue().launch(server_name=args.host, server_port=args.port, share=True)
+
+    # =========== Module testing ===========
+    # history = gr.State([])
+    # history = [
+    #     [["Could you help me pinpoint the person that is farthest from the viewer in this image?", "/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/data/coco2017/train2017/000000020150.jpg", None], ["Sure, I can. The person farthest from the viewer is the one in the middle of the image.", "/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/data/coco2017/train2017/000000020150.jpg", None]]]
+    
+    # user_input = 'Could you please generate a video from this image? It\'s a scene of a happy little girl in a pink dress sitting with crossed legs on the floor.'
+
+    # chatbox = None
+    # input_image_state = new_state()
+    # input_image_state['ibs'].update_image(Image.open('/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/data/coco2017/train2017/000000020150.jpg').convert('RGB'))
+    # input_image = '/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/data/cc3m/cc3m/003315556.jpg'
+    
+    # def binarize(x):
+    #     return (x != 0).astype('uint8') * 255
+    
+    # mask = np.array(Image.open('/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/data/cc3m/cc3m/003315556.jpg'))
+    # out_imagebox = {'image':Image.open('/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/data/cc3m/cc3m/003315556.jpg'), 'mask': mask}
+    # input_video_state = new_state()
+    # # input_video = '/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/SEEM/demo_code/examples/vasedeck.mp4'
+    # input_video = '/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/StableVideo/data/lucia'  
+    # _frame_mask = np.array(Image.open('/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/mask.jpg'))
+    # video_sketch_pad = {'image': Image.open('/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/frame.jpg'), 'mask': _frame_mask}
+
+    # configs = None
+    # predict(None, None, None, None, None,
+    #         history, chatbox, user_input, 
+    #         input_image_state, input_image, out_imagebox,
+    #         input_video_state, input_video, video_sketch_pad,
+    #         configs)
+    
+    
+
+
 

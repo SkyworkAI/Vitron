@@ -16,8 +16,8 @@ class ImageBoxState:
 
     # noinspection PyAttributeOutsideInit
     def reset_state(self):
-        self.image = None  # when input is video, this is the current frame, otherwise it is the input image
-        self.image_list = None  # used for storing the list of video frames
+        self.image = None  # Image.  when input is video, this is the current frame, otherwise it is the input image
+        self.image_list = None  # List[Image] used for storing the list of video frames
         self.boxes = []
         self.masks = []
 
@@ -129,3 +129,16 @@ def bbox_draw(sketch_pad: dict, state: dict):
     ibs.update_mask(mask)
     out_draw = ibs.draw_boxes()
     return out_draw, state
+
+
+def mask_to_bbox(mask):
+    """
+    mask: np.array
+    """
+    x1x2 = np.where(mask.max(0) != 0)[0]
+    # noinspection PyArgumentList
+    y1y2 = np.where(mask.max(1) != 0)[0]
+    y1, y2 = y1y2.min(), y1y2.max()
+    x1, x2 = x1x2.min(), x1x2.max()
+    return tuple(map(int, (x1, y1, x2, y2)))
+    
