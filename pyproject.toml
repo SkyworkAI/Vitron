@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vitron"
+version = "1.0.0"
+description = "A Unified Pixel-level Vision LLM for Understanding, Generating, Segmenting, Editing"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+]
+dependencies = [
+    "torch==2.1.0", "torchvision==0.15.2",
+    "transformers==4.31.0", "tokenizers>=0.12.1,<0.14", "sentencepiece==0.2.0",
+    "accelerate==0.28.0", "peft==0.10.0", "bitsandbytes==0.41.0",
+    "pydantic<2,>=1", "markdown2[all]", "numpy", "scikit-learn==1.2.2",
+    "requests", "httpx==0.24.0", "uvicorn", "fastapi",
+    "einops==0.7.0", "timm==0.9.16",
+    "tensorboardX==2.6.2.2", "gradio==3.42.0", "gradio_client==0.5.0", "detectron2=0.6",
+    "ffmpeg==6.1.1", "flash-attn==2.5.6", "
+]
+
+[project.optional-dependencies]
+train = ["deepspeed==0.12.6", "ninja", "wandb"]
+
+[project.urls]
+"Homepage" = "https://github.com/SkyworkAI/Vitron"
+"Bug Tracker" = "https://github.com/SkyworkAI/Vitron/issues"
+
+[tool.setuptools.packages.find]
+exclude = ["assets*", "benchmark*", "docs", "dist*", "playground*", "scripts*", "tests*"]
+
+[tool.wheel]
+exclude = ["assets*", "benchmark*", "docs", "dist*", "playground*", "scripts*", "tests*"]
