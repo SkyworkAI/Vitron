@@ -1,6 +1,6 @@
 [submodule "modules/GLIGEN"]
 	path = modules/GLIGEN
-	url = https://github.com/SkyworkAI/Vitron
+	url = https://github.com/SkyworkAI/Vitron/tree/main/modules/GLIGEN
 [submodule "modules/SEEM"]
 	path = modules/SEEM
 	url = https://github.com/SkyworkAI/Vitron
