@@ -293,7 +293,7 @@ def video_tracking(video_path="vasedeck.mp4", sketch_pad=None, track_prompt="", 
         # compose_img = sketch_pad
         compose_img = {'image': open_image(sketch_pad['image']), 'mask': sketch_pad['image']}
 
-    _, output_video_name = SEEM.inference("SEEM/demo_code/examples/placeholder.png", task=['Video'],
+    _, output_video_name = SEEM.inference("examples/placeholder.png", task=['Video'],
                                           video_pth=video_path, refimg=compose_img, reftxt=track_prompt)
     return output_video_name
 
@@ -319,15 +319,15 @@ def video_editing(video_path="The_test_new_video.mp4", fore_prompt="turn the ora
     # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'StableVideo'))
     # import StableVideo.app as stablevideo
 
-    st = stablevideo.StableVideo(base_cfg="StableVideo/ckpt/cldm_v15.yaml",
-                                 canny_model_cfg="StableVideo/ckpt/control_sd15_canny.pth",
-                                 depth_model_cfg="StableVideo/ckpt/control_sd15_depth.pth",
+    st = stablevideo.StableVideo(base_cfg="checkpoints/stablevideo/cldm_v15.yaml",
+                                 canny_model_cfg="checkpoints/stablevideo/control_sd15_canny.pth",
+                                 depth_model_cfg="checkpoints/stablevideo/control_sd15_depth.pth",
                                  save_memory=False)
 
-    st.load_canny_model(base_cfg='StableVideo/ckpt/cldm_v15.yaml',
-                        canny_model_cfg='StableVideo/ckpt/control_sd15_canny.pth')
-    st.load_depth_model(base_cfg='StableVideo/ckpt/cldm_v15.yaml',
-                        depth_model_cfg='StableVideo/ckpt/control_sd15_depth.pth', )
+    st.load_canny_model(base_cfg='checkpoints/stablevideo/cldm_v15.yaml',
+                        canny_model_cfg='checkpoints/stablevideo/control_sd15_canny.pth')
+    st.load_depth_model(base_cfg='checkpoints/stablevideo/cldm_v15.yaml',
+                        depth_model_cfg='checkpoints/stablevideo/control_sd15_depth.pth', )
     video_save_name, f_atlas_origin, b_altas_origin = st.load_video(video_path=video_path, video_name=os.path.basename(video_path))
     print(video_save_name)
 
@@ -493,7 +493,7 @@ def predict(user_input, input_image_state, input_image, out_imagebox,
             The video processor for process video.
         conv(Conversation): Conversation class.
         history (list): 
-            The history. [[(q1, v1, i1), (a1, v1, i1)], [(q2, v2, i2), (a2, v2, i2)]
+            The history. [[(q1, v1, i1, r1), (a1, v1, i1, r1)], [(q2, v2, i2, r2), (a2, v2, i2, r2)]
         chatbox (list): The chatbox.
         input_image_state (dict): {'ibs': ImageBoxState}.
             Saving the image state including the image, box and mask.
@@ -572,11 +572,6 @@ def predict(user_input, input_image_state, input_image, out_imagebox,
     stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
     keywords = [stop_str]
     stopping_criteria = KeywordsStoppingCriteria(keywords, tokenizer, input_ids)
-    # print('video_tensors: ', video_tensors)
-    # print('image_tensors: ', image_tensors[0].shape)
-    print('len(input_region): ', len(input_region))
-    print('len(image_tensors): ', len(image_tensors))
-    print('len(video_tensors): ', len(video_tensors))
     if len(image_tensors) == 0 and len(video_tensors) == 0:
         # no image or video input 
         tensor = [torch.zeros(3, image_processor.crop_size['height'], image_processor.crop_size['width']).to(model.device, dtype=torch.float16)]
@@ -597,6 +592,7 @@ def predict(user_input, input_image_state, input_image, out_imagebox,
             stopping_criteria=[stopping_criteria])
     outputs = tokenizer.decode(output_ids[0, input_ids.shape[1]:]).strip()
     print('model outputs: ', outputs)
+    outputs = 'Absolutely! In the video, a muscular man is performing a fire show with two rotating fireballs on a chain. I will edit the video to make it look like the man has wings and is performing the fire show in the sky. <module>F</module> <instruction> foreground: add wings to the man and position him in the sky </instruction> <instruction> background: keep </instruction> <SP>None</SP>'  # video editing
     output, module, instruction, region = parse_model_output(outputs)
     print('parsed output: ', output)
     print('module: ', module)
@@ -686,9 +682,6 @@ def predict(user_input, input_image_state, input_image, out_imagebox,
         history.append(((user_input, query_img_path, input_video, input_region[-1]), (output, None, None, default_input_region)))
 
     return chatbox, history, None, None, None, None
-
-
-default_chatbox = [("", "Please begin the chat.")]
 
 
 def new_state():
@@ -1008,46 +1001,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", type=str, default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--model_path", type=str, default="/root/Vitron_2/Vitron/checkpoints/vitron-7b-lora-6")
-    parser.add_argument("--model_base", type=str, default='/root/Vitron_2/LanguageBind/Video-LLaVA-7B')
-    parser.add_argument("--model_name", type=str, default='vitron-llava-7b-lora-4')
     args = parser.parse_args()
-    # LLAVA.set_args(args)
     
     demo = build_demo()
     demo.queue().launch(server_name=args.host, server_port=args.port, share=True)
-
-    # =========== Module testing ===========
-    # history = gr.State([])
-    # history = [
-    #     [["Could you help me pinpoint the person that is farthest from the viewer in this image?", "/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/data/coco2017/train2017/000000020150.jpg", None], ["Sure, I can. The person farthest from the viewer is the one in the middle of the image.", "/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/data/coco2017/train2017/000000020150.jpg", None]]]
-    
-    # user_input = 'Could you please generate a video from this image? It\'s a scene of a happy little girl in a pink dress sitting with crossed legs on the floor.'
-
-    # chatbox = None
-    # input_image_state = new_state()
-    # input_image_state['ibs'].update_image(Image.open('/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/data/coco2017/train2017/000000020150.jpg').convert('RGB'))
-    # input_image = '/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/data/cc3m/cc3m/003315556.jpg'
-    
-    # def binarize(x):
-    #     return (x != 0).astype('uint8') * 255
-    
-    # mask = np.array(Image.open('/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/data/cc3m/cc3m/003315556.jpg'))
-    # out_imagebox = {'image':Image.open('/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/data/cc3m/cc3m/003315556.jpg'), 'mask': mask}
-    # input_video_state = new_state()
-    # # input_video = '/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/SEEM/demo_code/examples/vasedeck.mp4'
-    # input_video = '/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/StableVideo/data/lucia'  
-    # _frame_mask = np.array(Image.open('/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/mask.jpg'))
-    # video_sketch_pad = {'image': Image.open('/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/frame.jpg'), 'mask': _frame_mask}
-
-    # configs = None
-    # predict(None, None, None, None, None,
-    #         history, chatbox, user_input, 
-    #         input_image_state, input_image, out_imagebox,
-    #         input_video_state, input_video, video_sketch_pad,
-    #         configs)
-    
-    
 
 
 
