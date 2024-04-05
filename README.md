@@ -1,7 +1,7 @@
 
 
 # <img src="vitron.png" style="width: 5%"> VITRON: A Unified Pixel-level Vision LLM for Understanding, Generating, Segmenting, Editing
-[Hao Fei](http://haofei.vip/)$^{1,2}$, [Shengqiong Wu](https://chocowu.github.io/)$^{1,2}$, , [Hanwang Zhang](https://personal.ntu.edu.sg/hanwangzhang/)$^{1,3}$, [Tat-Seng Chua](https://www.chuatatseng.com/)$^{2}$, and [Shuicheng Yan](https://yanshuicheng.info/)$^{1}$.
+[Hao Fei](http://haofei.vip/)$^{1,2}$, [Shengqiong Wu](https://chocowu.github.io/)$^{1,2}$, [Hanwang Zhang](https://personal.ntu.edu.sg/hanwangzhang/)$^{1,3}$, [Tat-Seng Chua](https://www.chuatatseng.com/)$^{2}$, and [Shuicheng Yan](https://yanshuicheng.info/)$^{1}$.
 
 **▶ $^{1}$ Skywork AI, Singapore   ▶ $^{2}$ National University of Singapore   ▶ $^{3}$ Nanyang Technological University**
 
