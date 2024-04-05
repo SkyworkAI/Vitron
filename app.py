@@ -592,7 +592,6 @@ def predict(user_input, input_image_state, input_image, out_imagebox,
             stopping_criteria=[stopping_criteria])
     outputs = tokenizer.decode(output_ids[0, input_ids.shape[1]:]).strip()
     print('model outputs: ', outputs)
-    outputs = 'Absolutely! In the video, a muscular man is performing a fire show with two rotating fireballs on a chain. I will edit the video to make it look like the man has wings and is performing the fire show in the sky. <module>F</module> <instruction> foreground: add wings to the man and position him in the sky </instruction> <instruction> background: keep </instruction> <SP>None</SP>'  # video editing
     output, module, instruction, region = parse_model_output(outputs)
     print('parsed output: ', output)
     print('module: ', module)
@@ -686,10 +685,6 @@ def predict(user_input, input_image_state, input_image, out_imagebox,
 
 def new_state():
     return {"ibs": ImageBoxState()}
-
-
-def clear_fn2(value):
-    return default_chatbox, None, new_state()
 
 
 def upload_image(sketch_pad: dict, state: dict):
@@ -1000,7 +995,7 @@ def build_demo():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", type=str, default="0.0.0.0")
-    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--port", type=int, default=18088)
     args = parser.parse_args()
     
     demo = build_demo()
