@@ -840,7 +840,7 @@ class ImageMask(gr.components.Image):
 
 
 TITLE = """
-<h1 align="center" style=" display: flex; flex-direction: row; justify-content: center; font-size: 25pt; "><img src='./file=vitron.png' width="45" height="45" style="margin-right: 10px;">Vitron</h1>
+<h1 align="center" style="display: flex;flex-direction: row;justify-content: center;font-size: 40pt;align-content: center;align-items: center;">< img src="./file=vitron.png" width="80" height="80" style="margin-right: 10px;">VITRON</h1>
 <div align="center" style="display: flex;"><a href='https://vitron-llm.github.io/'><img src='https://img.shields.io/badge/Project-Page-Green'></a> &nbsp  &nbsp  &nbsp <a href='https://github.com/Vitron-LLM/Vitron'><img src='https://img.shields.io/badge/Github-Code-blue'></a> &nbsp &nbsp  &nbsp  <a href='https://arxiv.org'><img src='https://img.shields.io/badge/Paper-PDF-red'></a> &nbsp &nbsp  &nbsp  <a href='https://youtu.be/wiGMJzoQVu4'><img src='https://img.shields.io/badge/video-YouTube-FF0000'></a></div>
 """
 
@@ -885,7 +885,7 @@ def build_demo():
                             with gr.Row():
                                 clearImageBtn = gr.Button("Clear Image and Sketch Pad", elem_id='clear_image')
                             with gr.Row():
-                                out_imagebox = gr.Image(label='Parsed Sketch Pad"', type='numpy',
+                                out_imagebox = gr.Image(label='Parsed Sketch Pad', type='numpy',
                                                 shape=(512, 512),  
                                                 # height=200, width=200, 
                                                 elem_id='out_imagebox')
