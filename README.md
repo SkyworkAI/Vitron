@@ -1,15 +1,15 @@
 
 
 # <img src="vitron.png" style="width: 5%"> VITRON: A Unified Pixel-level Vision LLM for Understanding, Generating, Segmenting, Editing
-[Hao Fei](http://haofei.vip/)$^{1,2}$, [Shengqiong Wu](https://chocowu.github.io/)$^{1,2}$, [Hanwang Zhang](https://personal.ntu.edu.sg/hanwangzhang/)$^{1,3}$, [Tat-Seng Chua](https://www.chuatatseng.com/)$^{2}$, and [Shuicheng Yan](https://yanshuicheng.info/)$^{1}$.
+[Hao Fei](http://haofei.vip/)$^{1,2}$, [Shengqiong Wu](https://chocowu.github.io/)$^{1,2}$, [Hanwang Zhang](https://personal.ntu.edu.sg/hanwangzhang/)$^{1,3}$, [Tat-Seng Chua](https://www.chuatatseng.com/)$^{2}$, [Shuicheng Yan](https://yanshuicheng.info/)$^{1}$
 
 **▶ $^{1}$ Skywork AI, Singapore   ▶ $^{2}$ National University of Singapore   ▶ $^{3}$ Nanyang Technological University**
 
 
 
 <a href='https://vitron-llm.github.io/'><img src='https://img.shields.io/badge/Project-Page-Green'></a>
-<a href='#'><img src='https://img.shields.io/badge/Demo-Page-purple'></a> 
-<a href='#'><img src='https://img.shields.io/badge/Paper-PDF-orange'></a> 
+<a href='http://101.200.223.110:18088/'><img src='https://img.shields.io/badge/Demo-Page-purple'></a> 
+<a href='https://is.gd/aGu0VV'><img src='https://img.shields.io/badge/Paper-PDF-orange'></a> 
 ![License](https://img.shields.io/badge/License-BSD-blue.svg)
 [![YouTube](https://badges.aleen42.com/src/youtube.svg)](https://youtu.be/wiGMJzoQVu4)
 
@@ -90,7 +90,6 @@ If you find our paper and code useful in your research, please consider giving a
   title={Vitron: A Unified Pixel-level Vision LLM for Understanding, Generating, Segmenting, Editing},
   author={Hao Fei, Shengqiong Wu, Hanwang Zhang, Tat-Seng Chua, Shuicheng Yan},
   journal={CoRR},
-  volume = {abs/2403.05519},
   year={2024}
 }
 ```
