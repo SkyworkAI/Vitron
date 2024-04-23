@@ -29,7 +29,7 @@ Existing vision LLMs might still encounter challenges such as superficial instan
 
 
 ## 🛠️ Requirements and Installation
-* Python >= 3.10
+* Python >= 3.8
 * Pytorch == 2.1.0
 * CUDA Version >= 11.8
 * Install required packages:
@@ -53,6 +53,14 @@ pip install decord opencv-python git+https://github.com/facebookresearch/pytorch
     conda uninstall ffmpeg
     conda install -c conda-forge ffmpeg   # `-c conda-forge` can not omit
     ```
+  
+2. Fail to install detectron2, try this command:
+    ```
+    python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
+    ```
+    or refer this [Website](https://detectron2.readthedocs.io/en/latest/tutorials/install.html).
+  
+3. Error in gradio. As there are a big update in `gradio>=4.0.0`, please make sure install gradio with the same verion in `requirements.txt`.
 </details>
 
 ## 👍 Deploying Gradio Demo
