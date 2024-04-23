@@ -3,7 +3,7 @@ import numpy as np
 import os
 from PIL import Image, ImageDraw, ImageFont
 
-
+# refer: https://github.com/NExT-ChatV/NExT-Chat/blob/main/mllm/utils/common.py
 class ImageBoxState:
     def __init__(self, draw_size=512):
         if isinstance(draw_size, (float, int)):
