@@ -183,17 +183,7 @@ class LlavaMetaForCausalLM(ABC):
     def encode_videos(self, videos):  # [mini_b, c, t, h, w]
         b, _, t, _, _ = videos.shape
         video_features = self.get_model().get_video_tower()(videos)  # [mini_b, t, n, c]
-        # print('video_features shape 1: ', video_features.shape)  # [1, 256, 1024]
-        # region_features = None
-        # if regions is not None:
-        #     region_features = self.get_model().get_region_extractor()(video_features, regions)
         video_features = self.get_model().mm_projector(video_features)
-        # print('video_features shape 22: ', video_features.shape)  # [1, 256, 1024]
-        # if regions is not None and region_features is not None:
-        #     return video_features.to(self.device), region_features.to(self.device)
-        # else:
-        #     dummy_region_features = torch.zeros_like(video_features).to(self.device)
-        #     return video_features.to(self.device), dummy_region_features
         return video_features.to(self.device)
 
     def prepare_inputs_labels_for_multimodal(
@@ -251,22 +241,17 @@ class LlavaMetaForCausalLM(ABC):
             regions_minibatch = [regions[idx] for idx in image_idx] if len(image_idx) > 0 else []  # there is a bbox, when only images exist
             tmp_image_features = [None] * (len(image_idx) + len(video_idx))
             temp_region_features = [None] * (len(image_idx) + len(video_idx))
-            # # print('images_minibatch shape: ', images_minibatch.shape)  # [mini_b, 3, 224, 224]
             if getattr(images_minibatch, 'ndim', 0) == 4:  # batch consists of images, [mini_b, c, h, w]
                 if image_tower is not None:
                     image_features_minibatch, region_features_minibatch = self.encode_images(images_minibatch, regions_minibatch)  # [mini_b, l, c]
-                    # print('image_features_minibatch shape:', image_features_minibatch.shape)  #  [16, 256, 4096]
                 else:
                     image_features_minibatch = torch.randn(1).to(self.device)  # dummy feature for video-only training under tuning
                     region_features_minibatch = torch.randn(1).to(self.device)  # dummy feature for video-only training under tuning
-                    # # print('image_features_minibatch shape:', image_features_minibatch.shape)
                 for i, pos in enumerate(image_idx):
                     tmp_image_features[pos] = image_features_minibatch[i]
                     temp_region_features[pos] = region_features_minibatch[i]
-                    # # print('region_features_minibatch[i]:', region_features_minibatch[i].shape)
             if getattr(videos_minibatch, 'ndim', 0) == 5:  # batch consists of videos, [mini_b, c, t, h, w]
                 video_features_minibatch = self.encode_videos(videos_minibatch)  # fake list [mini_b, t, l, c]
-                # print('video_features_minibatch shape:', video_features_minibatch.shape)
                 for i, pos in enumerate(video_idx):
                     t = video_features_minibatch[i].shape[0]
                     tmp_image_features[pos] = [video_features_minibatch[i][j] for j in range(t)]
@@ -294,7 +279,6 @@ class LlavaMetaForCausalLM(ABC):
                     else:
                         new_tmp.append(region)
             region_features = new_tmp
-            # print(len(region_features), *[i.shape for i in region_features])  # len(image_idx) + len(video_idx) *8, [256, 4096] 
             assert len(image_features) == len(region_features)  # the number of image and region should be the same
             # ====================================================================================================
 
@@ -319,10 +303,6 @@ class LlavaMetaForCausalLM(ABC):
                 labels = torch.full_like(input_ids, IGNORE_INDEX)
 
             # remove the padding using attention_mask -- TODO: double check
-            # # print('attention_mask: ', attention_mask)
-            # # print('input_ids 11: ', input_ids)
-            # # print('labels 11: ', labels)
-            # # print('position_ids: ', position_ids)
             input_ids = [cur_input_ids[cur_attention_mask] for cur_input_ids, cur_attention_mask in zip(input_ids, attention_mask)]
             labels = [cur_labels[cur_attention_mask] for cur_labels, cur_attention_mask in zip(labels, attention_mask)]
 
@@ -344,59 +324,35 @@ class LlavaMetaForCausalLM(ABC):
                     continue
 
                 image_token_indices = torch.where(cur_input_ids == IMAGE_TOKEN_INDEX)[0].tolist()
-                cur_image_idx += len(image_token_indices)
                 region_token_indices = torch.where(cur_input_ids == OBJS_TOKEN_INDEX)[0].tolist()
-                # print('image_token_indices: ', image_token_indices)  # [-1, 47, 63]
-                # print('region_token_indices: ', region_token_indices)  # [-1, 39, 63]
-                # obtain the 
                 _specfical_token_indices = torch.where(cur_input_ids == IMAGE_TOKEN_INDEX)[0].tolist() + torch.where(cur_input_ids == OBJS_TOKEN_INDEX)[0].tolist()
                 _specfical_token_indices.sort()
                 _specfical_token_indices = [-1] + _specfical_token_indices + [cur_input_ids.shape[0]]
-                # print('_specfical_token_indices: ', _specfical_token_indices)  # [-1, 47, 63]
                 cur_input_ids_noim = []
                 cur_labels = labels[batch_idx]
                 cur_labels_noim = []
                 for i in range(len(_specfical_token_indices) - 1):
                     cur_input_ids_noim.append(cur_input_ids[_specfical_token_indices[i]+1:_specfical_token_indices[i+1]])
-                    # print(f'cur_input_ids_noim {i}: ', cur_input_ids_noim)
                     cur_labels_noim.append(cur_labels[_specfical_token_indices[i]+1:_specfical_token_indices[i+1]])
                 split_sizes = [x.shape[0] for x in cur_labels_noim]
-                # print('split_sizes: ', split_sizes)
-                # for _x, _y in zip(cur_input_ids_noim, cur_labels_noim):
-                #     for i in range(len(region_token_indices) - 1):
                 cur_input_embeds = self.get_model().embed_tokens(torch.cat(cur_input_ids_noim))  # [l, c]  
                 cur_input_embeds_no_im = torch.split(cur_input_embeds, split_sizes, dim=0)
                 cur_new_input_embeds = []
                 cur_new_labels = []
-                # # print('num_images: ", num_images, num_objs)
-                # # print('_specfical_token_indices[1:]', _specfical_token_indices[1:])
-                # # print('_specfical_token_indices[1:]', _specfical_token_indices)
                 for i, _token_indices in zip(range(num_images + num_objs + 1), _specfical_token_indices[1:]):
                     cur_new_input_embeds.append(cur_input_embeds_no_im[i])
-                    # # print('cur_input_embeds_no_im: ", cur_input_embeds_no_im[i])
                     cur_new_labels.append(cur_labels_noim[i])
                     if _token_indices in image_token_indices:
-                        # cur_image_idx = image_token_indices.index(_token_indices)
-                        cur_mm_features = image_features[cur_image_idx-1]
+                        cur_mm_features = image_features[cur_image_idx]
+                        cur_image_idx += 1
                         cur_new_input_embeds.append(cur_mm_features)
                         cur_new_labels.append(torch.full((cur_mm_features.shape[0],), IGNORE_INDEX, device=cur_labels.device, dtype=cur_labels.dtype))
-                        # # print('cur_image_features: ", cur_mm_features)
-                        # # print('cur_image_features: ", cur_mm_features.shape)
                     elif _token_indices in region_token_indices:
-                        # cur_region_idx = image_token_indices.index(_specfical_token_indices[_specfical_token_indices.index(_token_indices)-1])
-                        # print('cur_region_idx: ', cur_region_idx)
-                        # print('cur_image_idx: ', cur_image_idx)
-                        # print('batch idx: ', batch_idx)
-                        # print('len(input_ids): ', len(input_ids))
                         cur_mm_features = region_features[cur_image_idx-1]
-                        # print('cur_region_features: ", cur_mm_features.shape)
                         cur_new_input_embeds.append(cur_mm_features)
                         cur_new_labels.append(torch.full((cur_mm_features.shape[0],), IGNORE_INDEX, device=cur_labels.device, dtype=cur_labels.dtype))
-                        # # print('cur_mm_features: ", cur_mm_features)
-                        
                     else:
                         continue
-                # print('cur_new_input_embeds: ", *[i.shape for i in cur_new_input_embeds])
                 cur_new_input_embeds = torch.cat(cur_new_input_embeds)
                 cur_new_labels = torch.cat(cur_new_labels)
 
@@ -409,7 +365,6 @@ class LlavaMetaForCausalLM(ABC):
                 new_input_embeds = [x[:tokenizer_model_max_length] for x in new_input_embeds]
                 new_labels = [x[:tokenizer_model_max_length] for x in new_labels]
             
-            # print('new labels 111: ', new_labels)
             # Combine them
             max_len = max(x.shape[0] for x in new_input_embeds)
             batch_size = len(new_input_embeds)
@@ -454,8 +409,6 @@ class LlavaMetaForCausalLM(ABC):
 
             if _position_ids is None:
                 position_ids = None
-            # print('new labels: ', new_labels)
-            # print('input_ids: ', input_ids)
             return None, position_ids, attention_mask, past_key_values, new_input_embeds, new_labels
         else:
             image_idx = [idx for idx, img in enumerate(images) if img.ndim == 3]
@@ -549,8 +502,6 @@ class LlavaMetaForCausalLM(ABC):
                     cur_input_ids_noim.append(cur_input_ids[image_token_indices[i]+1:image_token_indices[i+1]])
                     cur_labels_noim.append(cur_labels[image_token_indices[i]+1:image_token_indices[i+1]])
                 split_sizes = [x.shape[0] for x in cur_labels_noim]
-                # for _x, _y in zip(cur_input_ids_noim, cur_labels_noim):
-                #     for i in range(len(region_token_indices) - 1):
                 cur_input_embeds = self.get_model().embed_tokens(torch.cat(cur_input_ids_noim))
                 cur_input_embeds_no_im = torch.split(cur_input_embeds, split_sizes, dim=0)
                 cur_new_input_embeds = []
@@ -559,7 +510,6 @@ class LlavaMetaForCausalLM(ABC):
                     cur_new_input_embeds.append(cur_input_embeds_no_im[i])
                     cur_new_labels.append(cur_labels_noim[i])
                     if i < num_images:
-                        # print(cur_image_idx)
                         cur_image_features = image_features[cur_image_idx]
                         cur_image_idx += 1
                         cur_new_input_embeds.append(cur_image_features)
