@@ -112,18 +112,6 @@ def inference_video():
     print(outputs)
 
 
-
-# def test_modality_lengths(data_path):
-#     import json
-#     list_data_dict = json.load(open(data_path, "r"))
-#     length_list = []
-#     for sample in list_data_dict:
-#         cur_len = sum(len(conv['value'].split()) for conv in sample['conversations'])
-#         cur_len = cur_len if 'image' in sample else -cur_len
-#         length_list.append(cur_len)
-#     return length_list
-
 if __name__ == '__main__':
     inference_image()
     # inference_video()
-    # test_modality_lengths('/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/data/checkpoint/preprocess_self_constructed_3.json')
