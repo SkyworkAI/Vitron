@@ -33,12 +33,10 @@ sys.path.append(os.path.join(os.environ['BASE_HOME'], 'modules/SEEM/demo_code'))
 sys.path.append(os.path.join(os.environ['BASE_HOME'], 'modules/SEEM/demo_code/tasks'))
 import modules.SEEM.demo_code.app as SEEM
 import modules.SEEM.demo_code.utils.visualizer as visual
-# import SEEM.demo_code.tasks.visualizer as visual
 
 sys.path.append(os.path.join(os.environ['BASE_HOME'], 'modules/StableVideo'))
 import modules.StableVideo.app as stablevideo
 
-# sys.path.append(os.path.join(os.environ['BASE_HOME'], 'Vitron/vitron'))
 from vitron.constants import IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN, OBJS_TOKEN_INDEX, DEFAULT_VIDEO_TOKEN, DEFAULT_OBJS_TOKEN
 from vitron.conversation import conv_templates, SeparatorStyle
 from vitron.model.builder import load_pretrained_model
@@ -46,7 +44,7 @@ from vitron.utils import disable_torch_init
 from vitron.mm_utils import tokenizer_image_token, get_model_name_from_path, KeywordsStoppingCriteria, tokenizer_image_region_token, preprocess_region, show_image_with_bboxes
 
 
-def load_model(model_base, model_path, model_name='vitron-7b-lora-6'):
+def load_model(model_base, model_path, model_name):
     disable_torch_init()
     cache_dir = 'cache_dir'
     device = 'cuda'
@@ -58,9 +56,9 @@ def load_model(model_base, model_path, model_name='vitron-7b-lora-6'):
     conv = conv_templates[conv_mode].copy()
     return tokenizer, model, image_processor, video_processor, conv
 
-model_path = 'checkpoints/Vitron-lora/vitron-7b-lora-6'
+model_path = 'checkpoints/Vitron-lora'
 model_base = 'checkpoints/Vitron-base'
-model_name = 'vitron-7b-llava-lora-6'
+model_name = 'vitron-llava-7b-lora'
 tokenizer, model, image_processor, video_processor, conv = load_model(model_path=model_path, model_base=model_base, model_name=model_name)
 print('load model successfully')
 
@@ -93,8 +91,6 @@ def image_generation(prompt="a black swan swimming in a pond surrounded by green
     :param prompt: text
     :return: 
     """
-    # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'GLIGEN/demo'))
-    # import GLIGEN.demo.gligen.task_grounded_generation as GLIGEN_generation
     cache_file = os.path.join('checkpoints/gligen/gligen-generation-text-box', 'diffusion_pytorch_model.bin')
     pretrained_ckpt_gligen = torch.load(cache_file, map_location='cpu')
     cache_config = os.path.join('checkpoints/gligen/demo_config_legacy', 'gligen-generation-text-box.pth')
@@ -105,9 +101,6 @@ def image_generation(prompt="a black swan swimming in a pond surrounded by green
     config.model['params']['is_inpaint'] = False
     config.model['params']['is_style'] = True
     loaded_model_list = GLIGEN_generation.load_ckpt(config, pretrained_ckpt_gligen)
-    # phrase_list = []
-    # placeholder_image = Image.open('images/teddy.jpg').convert("RGB")
-    # image_list = [placeholder_image] * len(phrase_list)
     instruction = dict(prompt=prompt, save_folder_name='gen_res', batch_size=1,
                        phrases=['placeholder'], has_text_mask=1, has_image_mask=0,
                        images=[], alpha_type=[0.3, 0, 0.7], guidance_scale=7.5, fix_seed=True,
@@ -131,12 +124,8 @@ def image_segmentation(image_path, track_text, sketch_pad=None):
         Image: The segmented image.
     """
     print('Calling SEEM_app.inference')
-    # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'SEEM/demo_code'))
-    # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'SEEM/demo_code/tasks'))
-    # import SEEM.demo_code.app as SEEM
-    # import SEEM.demo_code.utils.visualizer as visual
-    # # import SEEM.demo_code.tasks.visualizer as visual
-
+    if image_path is None:
+        return None, None
     img = open_image(image_path)
     width, height = img.size
     if len(track_text) == 0 and sketch_pad is None:
@@ -145,43 +134,28 @@ def image_segmentation(image_path, track_text, sketch_pad=None):
         task = []
         image, _, labels = SEEM.inference(image=compose_img, task=task, reftxt=track_text)
         return image[0], _, labels
-
-    elif track_text:
-        if sketch_pad is None:
-            compose_img = {'image': img, 'mask': img}
-            task = ['Text']
-        else:
-            compose_img = {'image': open_image(sketch_pad['image']), 'mask': sketch_pad['image']}
-            # print('image segmentation / sketch_pad', sketch_pad)  # sketch_pad['image']: array,  sketch_pad['mask']: array
-            width, height = compose_img['image'].width, compose_img['image'].height
-            task = ['Stroke']
-        # task = ['Stroke']
-        image, masks, labels = SEEM.inference(image=compose_img, task=task, reftxt=track_text)
-        # print('image', image)
-        # print('masks', masks)
-        # print('labels', labels)
-        mask_pred = masks[0].astype("uint8")
-        mask_pred = cv2.resize(mask_pred, (width, height), interpolation=cv2.INTER_LANCZOS4)
-        mask_pred = mask_pred.astype("uint8")
-        print('mask_pred: ', mask_pred)
-        # print('mask shape: ', len(mask_pred), len(mask_pred[0]))
-        # print('height: ', height)
-        # print('width: ', width)
-        mask_demo = visual.GenericMask(mask_pred, height, width)
-        # print('mask_demo: ', mask_demo)
-        bbox = mask_demo.bbox()
-        mask = {'mask': mask_pred, 'boxes': bbox}
-        return image[0], mask, labels
-
-    elif sketch_pad:
+    if sketch_pad is not None:
+        compose_img = {'image': open_image(sketch_pad['image']), 'mask': sketch_pad['image']}
+        # print('mask path: ', save_image_to_local(open_image(sketch_pad['image'])))
+        # print('image segmentation / sketch_pad', sketch_pad)  # sketch_pad['image']: array,  sketch_pad['mask']: array
+        width, height = compose_img['image'].width, compose_img['image'].height
         task = ['Stroke']
-        image, expand, labels = SEEM.inference(image=sketch_pad, task=task, reftxt=track_text)
-        return image[0], expand, labels
+    else:
+        compose_img = {'image': img, 'mask': img}
+        task = ['Text']
+    
+    image, masks, labels = SEEM.inference(image=compose_img, task=task, reftxt=track_text)
+    mask_pred = masks[0].astype("uint8")
+    mask_pred = cv2.resize(mask_pred, (width, height), interpolation=cv2.INTER_LANCZOS4)
+    mask_pred = mask_pred.astype("uint8")
+    print('mask_pred: ', mask_pred)
+    mask_demo = visual.GenericMask(mask_pred, height, width)
+    bbox = mask_demo.bbox()
+    mask = {'mask': mask_pred, 'boxes': bbox}
+    return image[0], mask, labels
 
-    return None
 
-
-def image_editing(image_path="black-swan.png", sketch_pad=None,
+def image_editing(image_path=None, sketch_pad=None,
                prompt="Turn the swan's neck into a wooden sail; Turn the swan into a wood boat"):
     """
 
@@ -190,16 +164,16 @@ def image_editing(image_path="black-swan.png", sketch_pad=None,
     :param prompt: text prompt
     :return: generate image with 512X512 resolution
     """
-    # prompt="change the color of the swimming swan into blue"):
-    # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'GLIGEN/demo'))
-    # import GLIGEN.demo.app as GLIGEN
+    if image_path is None:
+        return None, None
     image = open_image(image_path)
     width, height = image.size
     text = prompt
     texts = [x.strip() for x in text.split(';')]
     boxes = []
     masks = []
-    if sketch_pad is None:
+    if np.where(sketch_pad['mask'].max(0) != 0)[0].shape[0] == 0 or np.where(sketch_pad['mask'].max(1) != 0)[0].shape[0] == 0:
+        print('sketch pad is none')
         # if there is no sketch_pad, i.e., no specification for image editing. Thus, first segmenting the image based on text， then inpainting the image
         for t in texts:
             _, t_mask, _ = image_segmentation(image_path=image_path, track_text=t)
@@ -221,6 +195,7 @@ def image_editing(image_path="black-swan.png", sketch_pad=None,
     else:
         boxes = mask_to_bbox(sketch_pad['mask'])
         state = {'boxes': [boxes]}
+        print('sketch pad is not none')
         print('state: ', state)
         gen_images, state_list = GLIGEN.generate(task='Grounded Inpainting', language_instruction=prompt,
                                                  sketch_pad=sketch_pad,
@@ -250,7 +225,6 @@ def video_generation(prompt,
         num_frames (int): The number of frames.
         guidance_scale (float): The guidance scale.
     """
-    # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'Zeroscope'))
     pipe = DiffusionPipeline.from_pretrained("checkpoints/zeroscope", torch_dtype=torch.float16)
     pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
     pipe.enable_model_cpu_offload()
@@ -260,15 +234,13 @@ def video_generation(prompt,
                         guidance_scale=guidance_scale,
                         height=320, width=576, 
                         num_frames=num_frames).frames[0]
-    # print('video_frames: ', video_frames)
     video_frames = [np.array(frame) for frame in video_frames]
     video_path = save_video_to_local(video_frames)
     print(f'Generated video save into {video_path}')
-    # video_path = export_to_video(video_frames, f"{save_dir}/video.mp4")
     return video_path
 
 
-def video_tracking(video_path="vasedeck.mp4", sketch_pad=None, track_prompt="", text_prompt=""):
+def video_tracking(video_path=None, sketch_pad=None, track_prompt="", text_prompt=""):
     """
     Based on the input video, we track the video and return the tracked video.
     Args:
@@ -281,8 +253,8 @@ def video_tracking(video_path="vasedeck.mp4", sketch_pad=None, track_prompt="", 
     Returns:
         str: The tracked video path.
     """
-    # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'SEEM/demo_code'))
-    # import SEEM.demo_code.app as SEEM
+    if video_path is None:
+        return None
     if sketch_pad is None:
         i_video_path = video_path.split('/')[-2]
         img, o = video_editing(video_path=i_video_path, fore_prompt=text_prompt, back_prompt="")
@@ -291,15 +263,17 @@ def video_tracking(video_path="vasedeck.mp4", sketch_pad=None, track_prompt="", 
         compose_img = {'image': img, 'mask': img}
     else:
         # compose_img = sketch_pad
-        compose_img = {'image': open_image(sketch_pad['image']), 'mask': sketch_pad['image']}
+        compose_img = {'image': open_image(sketch_pad['image']), 'mask': sketch_pad['mask']}
+        # compose_img = {'image': sketch_pad['ibs'].image, 'mask':  sketch_pad['ibs'].masks[-1]}
+        # print(save_image_to_local(open_image(sketch_pad['image'])))  # an image with bbox
+        # print(save_image_to_local(open_image(sketch_pad['mask'])))  # a binary mask with strech
 
     _, output_video_name = SEEM.inference("examples/placeholder.png", task=['Video'],
                                           video_pth=video_path, refimg=compose_img, reftxt=track_prompt)
     return output_video_name
 
 
-def video_editing(video_path="The_test_new_video.mp4", fore_prompt="turn the orange into bread",
-               back_prompt="change the background into the blue"):
+def video_editing(video_path=None, fore_prompt=None, back_prompt=None):
     """
 
     :param video_path (str): directory of the video to be modified. The file structure shoud be like this
@@ -316,9 +290,8 @@ def video_editing(video_path="The_test_new_video.mp4", fore_prompt="turn the ora
     :param fore_prompt (str): prompt for modifying foreground, such as "turn the orange into bread"
     :param back_prompt (str): prompt for modifying background, such as "change the background into the blue"
     """
-    # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'StableVideo'))
-    # import StableVideo.app as stablevideo
-
+    if video_path is None:
+        return None, None
     st = stablevideo.StableVideo(base_cfg="checkpoints/stablevideo/cldm_v15.yaml",
                                  canny_model_cfg="checkpoints/stablevideo/control_sd15_canny.pth",
                                  depth_model_cfg="checkpoints/stablevideo/control_sd15_depth.pth",
@@ -340,13 +313,14 @@ def video_editing(video_path="The_test_new_video.mp4", fore_prompt="turn the ora
     return f_atlas, output_video_name
 
 
-def image_to_video(image_path='street.png', 
-                   text_prompt='a car on the road, a white dog is beside the car, the dog run past the car',
+def image_to_video(image_path=None, 
+                   text_prompt=None,
                    ):
     """
     Based on the input image and text prompt, we generate the corresponding video.
     """
-    # sys.path.append(os.path.join(os.environ['BASE_HOME'], 'i2vgen-xl'))
+    if image_path is None or text_prompt is None:
+        return None, None
     pipe = I2VGenXLPipeline.from_pretrained("checkpoints/i2vgen-xl", torch_dtype=torch.float16, variant="fp16")
     pipe.enable_model_cpu_offload()
 
@@ -469,17 +443,18 @@ def get_utterence(query, video_processor, image_processor):
 
 
 def re_predict(user_input, input_image_state, input_image, out_imagebox,
-             input_video_state, input_video, video_sketch_pad, history, chatbox, 
-            configs):
+            input_video_state, input_video, video_sketch_pad, history, chatbox, *args):
     q, a = history.pop()
     chatbox.pop()
-    return predict(q, input_image_state, input_image, out_imagebox,
-             input_video_state, input_video, video_sketch_pad, history, chatbox, 
-            configs)
+    # input_image_state = new_state()['ibs'].update_image(open_image(q[1]))
+    q_utterance, q_video_tensor, q_image_tensor, q_region = get_utterence(q, video_processor, image_processor)
+    return predict(q_utterance, input_image_state, q[1], out_imagebox,
+            input_video_state, q[2], video_sketch_pad, history, chatbox, 
+            *args)
 
 
 def predict(user_input, input_image_state, input_image, out_imagebox,
-            input_video_state, input_video, video_sketch_pad, history, chatbox, 
+            input_video_state, input_video, video_sketch_pad, history, chatbox,
             *args):
     """
     Based on the user input and history, we generate the response and update the history.
@@ -514,9 +489,10 @@ def predict(user_input, input_image_state, input_image, out_imagebox,
     image_tensors = []
     input_region = []
     config = create_cfg(*args)
+    default_input_region = [0, 0, 224, 224]
     if history is not None:
         print('history: ', history)
-        default_input_region = [0, 0, 224, 224]
+        # default_input_region = [0, 0, 224, 224]
         for idx, _his in enumerate(history):
             print(f'idx: {idx},  history[idx]: {_his}')
             q, a = _his
@@ -545,10 +521,12 @@ def predict(user_input, input_image_state, input_image, out_imagebox,
         video_tensors.append(video_processor(input_video, return_tensors='pt')['pixel_values'][0])  # 'input_video' should be a file_path
         _user_input += f'<br><video controls playsinline width="500" style="display: inline-block;"  src="./file={input_video}"></video>'
         input_region.append(default_input_region)
-    if input_image_state['ibs'].image is not None:
+    if input_image is not None:
         inp = inp + ' ' + DEFAULT_IMAGE_TOKEN
-        image_tensors.append(image_processor.preprocess(input_image_state['ibs'].image, return_tensors='pt')['pixel_values'][0])
-        if len(input_image_state['ibs'].boxes) > 0:
+        _image = open_image(input_image['image'])
+        image_tensors.append(image_processor.preprocess(_image, return_tensors='pt')['pixel_values'][0])
+        ori_im_size = [_image.width, _image.height]
+        if input_image_state is not None and len(input_image_state['ibs'].boxes) > 0:
             bbox = input_image_state['ibs'].boxes[-1]
             input_region.append(bbox)
             ori_im_size = [input_image_state['ibs'].width, input_image_state['ibs'].height]
@@ -556,7 +534,8 @@ def predict(user_input, input_image_state, input_image, out_imagebox,
             inp = inp + '\n' + DEFAULT_OBJS_TOKEN + ' '
         else:
             input_region.append(default_input_region)
-        query_img_path = save_image_to_local(input_image_state['ibs'].image)
+        query_img_path = save_image_to_local(_image)
+
         _user_input += f'<br><img src="./file={query_img_path}" style="display: inline-block;width: 250px;max-height: 400px;">'
     inp = inp + '\n' + user_input if inp.endswith('>') else inp + user_input
     print('inp: ', inp)
@@ -598,8 +577,9 @@ def predict(user_input, input_image_state, input_image, out_imagebox,
     print('instruction: ', instruction)
     print('region: ', region)
     # _user_input = None
-    if input_image_state['ibs'].image is not None:
-        query_img_path = save_image_to_local(input_image_state['ibs'].image)
+    if input_image_state is not None and input_image_state['ibs'].raw_image is not None:
+        query_img_path = save_image_to_local(input_image_state['ibs'].raw_image)
+        print(query_img_path)
     else:
         query_img_path = None
 
@@ -632,6 +612,7 @@ def predict(user_input, input_image_state, input_image, out_imagebox,
             else:
                 _response = output
                 ans_image_path = None
+            print(f'image file save into {ans_image_path}')
             chatbox.append((_user_input, _response))
             history.append(((user_input, query_img_path, input_video, input_region[-1]), (output, ans_image_path, None, default_input_region)))
         elif module == 'D':
@@ -644,11 +625,11 @@ def predict(user_input, input_image_state, input_image, out_imagebox,
             chatbox.append((_user_input, _response))
             history.append(((user_input, query_img_path, input_video, input_region[-1]), (output, None, ans_video_path, default_input_region)))
         elif module == 'E':
-            query_img_path = save_image_to_local(input_video_state['ibs'].image)
+            if input_video_state['ibs'].raw_image is not None:
+                query_img_path = save_image_to_local(input_video_state['ibs'].raw_image)
+            else:
+                query_img_path = None
             if instruction is not None and len(instruction) > 0:
-                # target_video_path = os.path.join('./temp', os.path.basename(input_video))
-                # cp_cmd = 'cp {} {}'.format(input_video, target_video_path)
-                # os.system(cp_cmd)
                 ans_video_path = video_tracking(video_path=input_video, sketch_pad=video_sketch_pad, track_prompt=instruction[0])
                 _response = output + f'<br><video controls playsinline width="500" style="display: inline-block;"  src="./file={ans_video_path}"></video>'
             else:
@@ -703,7 +684,7 @@ def reset_state(input_image_state, input_video_state):
     ibs = input_video_state["ibs"]
     ibs.reset_state()
 
-    return None, None, None, None, None, [], [], []
+    return input_image_state, input_video_state, None, None, None, None, None, [], []
 
 
 def create_cfg(seed, top_p, temperature,
@@ -769,17 +750,13 @@ def edit_video_frame(sketch_pad, state):
     def binarize(x):
         return (x != 0).astype('uint8') * 255
     image = sketch_pad['image']
-    # print('sketch_pad', sketch_pad)  # {'image': array unit8, 'mask': array unit8}
     image = open_image(image)
-    # global count
-    # count += 1
-    # np.save( f"{count}.npy", sketch_pad['mask'])
     mask = sketch_pad['mask'].sum(-1) if sketch_pad['mask'].ndim == 3 else sketch_pad['mask']
     mask = binarize(mask)
     ibs = state["ibs"]
     ibs.update_image(image)
     ibs.update_mask(mask)
-    return image, state
+    return state
 
 
 def select_next_frame(state):
@@ -807,10 +784,17 @@ def clear_image_and_sketch_pad(state):
     return state, None, None
 
 
+def clear_image_and_video(image_state, video_state):
+    image_state["ibs"].reset_state()
+    video_state["ibs"].reset_state()
+    return image_state, video_state, None, None, None, None, [], []
+
+
 def clear_input(image_state, video_state):
     image_state["ibs"].reset_state()
     video_state["ibs"].reset_state()
-    return image_state, video_state, None, None, None, None, None
+    return image_state, video_state, None, None, None, None, None, [], []
+    # return None
 
 
 class ImageMask(gr.components.Image):
@@ -840,8 +824,8 @@ class ImageMask(gr.components.Image):
 
 
 TITLE = """
-<h1 align="center" style="display: flex;flex-direction: row;justify-content: center;font-size: 40pt;align-content: center;align-items: center;">< img src="./file=vitron.png" width="80" height="80" style="margin-right: 10px;">VITRON</h1>
-<div align="center" style="display: flex;"><a href='https://vitron-llm.github.io/'><img src='https://img.shields.io/badge/Project-Page-Green'></a> &nbsp  &nbsp  &nbsp <a href='https://github.com/Vitron-LLM/Vitron'><img src='https://img.shields.io/badge/Github-Code-blue'></a> &nbsp &nbsp  &nbsp  <a href='https://arxiv.org'><img src='https://img.shields.io/badge/Paper-PDF-red'></a> &nbsp &nbsp  &nbsp  <a href='https://youtu.be/wiGMJzoQVu4'><img src='https://img.shields.io/badge/video-YouTube-FF0000'></a></div>
+<h1 align="center" style="display: flex;flex-direction: row;justify-content: center;font-size: 40pt;align-content: center;align-items: center;"> <img src="./file=vitron.png" width="80" height="80" style="margin-right: 10px;">VITRON</h1>
+<div align="center" style="display: flex;"><a href='https://vitron-llm.github.io/'><img src='https://img.shields.io/badge/Project-Page-Green'></a> &nbsp  &nbsp  &nbsp <a href='https://github.com/SkyworkAI/Vitron'><img src='https://img.shields.io/badge/Github-Code-blue'></a> &nbsp &nbsp  &nbsp  <a href='https://is.gd/aGu0VV'><img src='https://img.shields.io/badge/Paper-PDF-red'></a> &nbsp &nbsp  &nbsp  <a href='https://youtu.be/wiGMJzoQVu4'><img src='https://img.shields.io/badge/video-YouTube-FF0000'></a></div>
 """
 
 INTRODUCTION = """
@@ -868,7 +852,7 @@ def build_demo():
                 
                 with gr.Row():
                     with gr.Column(scale=3):
-                        with gr.Tab('🏞️ Image'):
+                        with gr.Tab('🌁 Image'):
                             with gr.Row():
                                 # input_image = gr.Image(label='Input Image', type='numpy',
                                 #                         shape=(512, 512), 
@@ -946,6 +930,7 @@ def build_demo():
                         guidance_scale_for_vid, num_inference_steps_for_vid, num_frames, 
                         num_inference_steps_for_vid_edit, guidance_scale_for_vide_edit
                     ]
+                
                 with gr.Tab("🎯 Operation"):
                     with gr.Row(scale=1):
                         submitBtn = gr.Button(value="Submit & Run", variant="primary")
@@ -954,11 +939,150 @@ def build_demo():
                     with gr.Row(scale=1):
                         emptyBtn = gr.Button("Clear History") 
                 
+
+                with gr.Tab("📔 Guidebook"):
+                    with gr.Accordion('📖 Open it for detailed instruction', open=False,):
+
+                        gr.Markdown("#### 🍀Input Image")
+                        gr.Markdown('You can upload an image in here')
+                        gr.Markdown('#### 🎋Parsed Sketch Pad')
+                        gr.Markdown('When you scribble on the input image, we will parse the sketch and draw the corresponding bounding box on the image')
+                        gr.Markdown('#### 🌵Input Video')
+                        gr.Markdown('You can upload a video in here')
+                        gr.Markdown('#### 🌳Video Frame')
+                        gr.Markdown('The video frames are extracted automatically with the first frame displayed for you. Mark any object you wish to track directly on the frame and use the `Next Frame` button to proceed to subsequent frames.')
+                        gr.Markdown('#### 🎄Examples')
+                        gr.Markdown('We provide examples, you can choose one example and then click `Submit&Run` to obtain the results.')
+                        gr.Markdown('The results may be delayed due to network speeds or model processing efficiency. If you have any questions, feel free to reach out to the authors. Thank you for your patience.🫰🫰')
+            
+                
         # input_image.upload(fn=clear_fn2, inputs=emptyBtn, outputs=[output_text, out_imagebox, input_image_state])
         # input_image.clear(fn=clear_fn2, inputs=emptyBtn, outputs=[output_text, out_imagebox, input_image_state])
 
             history = gr.State([])
-
+        with gr.Tab('Image Understanding'):
+            img_und = gr.Examples(
+                [
+                    ['What is the role of the net in a tennis game, and what strategies might a player adopt when positioned close to the net?', 'examples/000000015269.jpg'],
+                    ['How large is the pizza in relation to the table', 'examples/000000346930.jpg'],
+                    ['Can this food item be considered lasagna?', 'examples/000000036260.jpg'],
+                    ['CWhat activity might the woman be engaging in, and what type of entertainment could she be enjoying?', 'examples/000000036904.jpg'],
+                    ['Write a detailed description of the given image.', 'examples/000000455523.jpg']
+                ],
+                [user_input, input_image],
+                examples_per_page=5,
+                label=''
+            )
+            img_und.dataset.click(clear_video_and_frame, inputs=[input_video_state], outputs=[input_video_state, video_sketch_pad, input_video])
+        with gr.Tab('Image Generation'):
+            img_gen = gr.Examples(
+                [
+                    ['I\'ve always been fascinated by wolves and their social dynamics. Can you imagine an image where a gray wolf is seen interacting with its pack, displaying their strong social bonds?'],
+                    ['I\'m looking for inspiration for a trendy dining room design. Could you show me an image that exemplifies modern style and elegance?'],
+                    ['Hey, I\'m looking for an image of a wild mountain goat standing alone against a plain white background. Can you help me with that?'],
+                    ['I\'d love to see an image of a tranquil river flowing by a campground.'],
+                    ['Could you please provide me with a video that showcases a scenic left-to-right panoramic view of a city as the camera navigates through its winding streets?']
+                ],
+                [user_input],
+                examples_per_page=5,
+                label=''
+            )
+            img_gen.dataset.click(clear_image_and_video, inputs=[input_image_state, input_video_state], outputs=[input_image_state, input_video_state, input_image, out_imagebox, input_video, video_sketch_pad, history, chatbot])
+        with gr.Tab('Image Segmentation'):
+            img_seg = gr.Examples(
+                [
+                    ['In this photo, can you show me the man who is eating a hotdog?', 'examples/000000326300.jpg'],
+                    ['Hey, I need to highlight the laptop in this picture, can you handle it?', 'examples/000000363079.jpg'],
+                    ['Could you please segment out the person on the right side in the image?', 'examples/000000418723.jpg'],
+                    ['Could you assist me in locating the woman in this picture', 'examples/000000448663.jpg']
+                ],
+                [user_input, input_image],
+                examples_per_page=5,
+                label=''
+            )
+            img_seg.dataset.click(clear_video_and_frame, inputs=[input_video_state], outputs=[input_video_state, video_sketch_pad, input_video])
+        with gr.Tab('Image Editing'):
+            img_edit = gr.Examples(
+                [
+                    ['Can you add a sun hat on the dog\'s head I marked', 'examples/000000407083.jpg'],
+                    ['I\'d like to replace the white and black motorcycle with a blue bicycle.', 'examples/000000270066.jpg'],
+                    ['Could you add a few seagulls flying over the water', 'examples/000000116439.jpg'],
+                    ['I want to remove the woman in the area', 'examples/000000576654.jpg'],
+                    ['In the image, can you change the color of one of the shoes to black?', 'examples/523394-input.png']
+                ],
+                [user_input, input_image],
+                examples_per_page=5,
+                label=''
+            )
+            img_edit.dataset.click(clear_video_and_frame, inputs=[input_video_state], outputs=[input_video_state, video_sketch_pad, input_video])
+        with gr.Tab('Video Understanding'):
+            vid_und = gr.Examples(
+                [
+                    ['What is the man doing in the video?', 'examples/coverr-man-takes-a-photo-of-a-woman-on-the-beach-1080p.mp4'],
+                    ['What is the woman doing, and what are the possible following actions taken by the woman?', 'examples/coverr-woman-preparing-for-outdoor-yoga-1080p.mp4'],
+                    ['Give a detail description of the video.', 'examples/coverr-timetable-movement-buses-in-london-6530-1080p.mp4'],
+                    ['What may be inside the cup?', 'examples/coverr-a-man-puts-a-coffee-cup-on-the-coaster-3717-1080p.mp4'],
+                    ['What is the game people are playing in the video?','examples/mixkit-friends-playing-monopoly-5235-medium.mp4'],
+                    ['How many people appear in the video?', 'examples/mixkit-friends-running-on-the-beach-towards-the-sea-21237-medium.mp4']
+                ],
+                [user_input, input_video],
+                examples_per_page=5,
+                label=''
+            )
+            vid_und.dataset.click(clear_image_and_sketch_pad, inputs=[input_image_state], outputs=[input_image_state, input_image, out_imagebox]).then(extract_frames, inputs=[input_video, input_video_state], outputs=[video_sketch_pad, input_video_state])
+        with gr.Tab('Video Generation'):
+            vid_gen = gr.Examples(
+                [
+                    ['I\'m in awe of the beauty of nature. Is there a video that showcases an aerial view of a tractor working on the fields in stunning 4K resolution?'],
+                    ['I really need a video that captures the beauty of a waterfall in the wild during a sunny day. It\'s so refreshing to see water cascading down with sunlight dancing on its surface. Can you find something like that for me?'],
+                    ['Could you please create a video that captures the essence of a brown bear bathing and scratching itself?'],
+                    ['Oh, I\'m fascinated by the intricate lives of ants! Could you show me a close-up video of an ant colony in the wild? I\'m particularly interested in observing their organized movements and bustling activity.'],
+                    ['I\'m really curious to see a video that captures the moment when a droplet of water falls from the sky in slow motion. Do you have something like that?']
+                ],
+                [user_input],
+                examples_per_page=5,
+                label=''
+            )
+            vid_gen.dataset.click(clear_image_and_video, inputs=[input_image_state, input_video_state], outputs=[input_image_state, input_video_state, input_image, out_imagebox, input_video, video_sketch_pad, history, chatbot])
+        with gr.Tab('Video Tracking'):
+            vid_track = gr.Examples(
+                [
+                    ['Can you assist me in tracking the woman in the video?', 'examples/9wrrvxt2.mp4'],
+                    ['Can you assist me in tracking the long bench in the video?', 'examples/9wrrvxt2.mp4'],
+                    ['I\'m interested in the woman in this video, can you track her for me?', 'examples/mixkit-girl-running-during-sunset-ties-her-shoelaces-4851-medium.mp4'],
+                    ['I need to track the young monkey in this video, is it possible?', 'examples/Apes-eating-grass.mp4']
+                ],
+                [user_input, input_video],
+                examples_per_page=5,
+                label=''
+            )
+            vid_track.dataset.click(clear_image_and_sketch_pad, inputs=[input_image_state], outputs=[input_image_state, input_image, out_imagebox]).then(extract_frames, inputs=[input_video, input_video_state], outputs=[video_sketch_pad, input_video_state])
+        with gr.Tab('Video Editing'):
+            vid_edit = gr.Examples(
+                [
+                    ['Could you swap out the background for a snowy scene, kind of like a bear strolling through a winter forest?', 'examples/video_edit/bear/bear.mp4'],
+                    ['can you change the background into a colorful one', 'examples/video_edit/lucia/lucia.mp4'],
+                    ['I want to see the man wearing a blue hat', 'examples/video_edit/motorbike/motorbike.mp4']
+                ],
+                [user_input, input_video],
+                examples_per_page=5,
+                label=''
+            )
+            vid_edit.dataset.click(clear_image_and_sketch_pad, inputs=[input_image_state], outputs=[input_image_state, input_image, out_imagebox]).then(extract_frames, inputs=[input_video, input_video_state], outputs=[video_sketch_pad, input_video_state])
+        with gr.Tab('Image-to-Video'):
+            img_to_vid = gr.Examples(
+                [
+                    ['It would be great if this image could be transformed into a video. Do you think you can assist? ', 'examples/002327942.jpg'],
+                    ['I have an image here showing an actor and a person arriving at a premiere. Can you turn this into a moving scene for me?', 'examples/002329773.jpg'],
+                    ['I\'ve got an image that portrays a little game - it says \"It\'s not just about the lemurs - spot the chameleon!\" I\'m wondering if you could create a video out of this image?', 'examples/002328529.jpg'],
+                    ['Can you help me transform the image of sliced mushrooms falling into the frying pan into motion?', 'examples/002322781.jpg'],
+                    ['Using this image of a coffee cup with lipstick on it, can you create a video for me?', 'examples/002325830.jpg'],
+                ],
+                [user_input, input_image],
+                examples_per_page=5,
+                label=''
+            )
+            img_to_vid.dataset.click(clear_video_and_frame, inputs=[input_video_state], outputs=[input_video_state, video_sketch_pad, input_video])
         input_image.upload(fn=upload_image, inputs=[input_image, input_image_state], outputs=[out_imagebox, input_image_state])
         input_image.edit(
             fn=bbox_draw,
@@ -969,11 +1093,11 @@ def build_demo():
         clearImageBtn.click(fn=clear_image_and_sketch_pad, inputs=[input_image_state], outputs=[input_image_state, input_image, out_imagebox])
 
         input_video.upload(fn=extract_frames, inputs=[input_video, input_video_state], outputs=[video_sketch_pad, input_video_state])
-        video_sketch_pad.edit(fn=edit_video_frame, inputs=[video_sketch_pad, input_video_state], outputs=[video_sketch_pad, input_video_state])  # update the states
+        video_sketch_pad.edit(fn=edit_video_frame, inputs=[video_sketch_pad, input_video_state], outputs=[input_video_state])  # update the states
         nextFrameBtn.click(fn=select_next_frame, inputs=[input_video_state], outputs=[video_sketch_pad, input_video_state])
         clearFrameBtn.click(fn=clear_video_and_frame, inputs=[input_video_state], outputs=[input_video_state, video_sketch_pad, input_video])
 
-        emptyBtn.click(fn=reset_state, inputs=[input_image_state, input_video_state], outputs=[user_input, input_image, out_imagebox, input_video, video_sketch_pad, history, chatbot])
+        emptyBtn.click(fn=reset_state, inputs=[input_image_state, input_video_state], outputs=[input_image_state, input_video_state, user_input, input_image, out_imagebox, input_video, video_sketch_pad, history, chatbot])
         submitBtn.click(fn=predict, 
                         inputs=[user_input, input_image_state, input_image, out_imagebox,
                                 input_video_state, input_video, video_sketch_pad, history, chatbot, *configs
@@ -981,13 +1105,15 @@ def build_demo():
                         outputs=[chatbot, history], show_progress=True).then(clear_input, inputs=[input_image_state, input_video_state], outputs=[input_image_state, input_video_state, input_image, input_video, video_sketch_pad, out_imagebox, user_input],
                         show_progress=True
                         )
+        # .then(clear_input, inputs=[input_image_state, input_video_state], outputs=[input_image_state, input_video_state, input_image, input_video, video_sketch_pad, out_imagebox, user_input],
         resubmitBtn.click(fn=re_predict, 
                         inputs=[user_input, input_image_state, input_image, out_imagebox,
-                                input_video_state, input_video, video_sketch_pad, history, chatbot, 
+                                input_video_state, input_video, video_sketch_pad, history, chatbot, *configs
                                 ], 
                         outputs=[chatbot, history], show_progress=True).then(clear_input, inputs=[input_image_state, input_video_state], outputs=[input_image_state, input_video_state, input_image, input_video, video_sketch_pad, out_imagebox, user_input],
                         show_progress=True
                         )
+        
     
     return demo
 
