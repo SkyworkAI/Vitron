@@ -2,3 +2,47 @@ h1 {
     text-align: center;
     display: block;
 }
+
+
+.user.svelte-1uvwjgr.svelte-1uvwjgr.svelte-1uvwjgr {
+    border-color: #fed7aa;
+    background-color: #fff7ed;
+}
+
+.bot.svelte-1henpdt.svelte-1henpdt.svelte-1henpdt{
+/* .bot.svelte-1pjfiar.svelte-1pjfiar.svelte-1pjfiar { */
+    border-color: #3D8B8B;
+    background: #F4FBEB;
+}
+
+/* tab button style */
+button.svelte-kqij2n {
+    margin-bottom: -1px;
+    border: 1px solid transparent;
+    border-color: transparent;
+    border-bottom: none;
+    color: #9CA3AF !important;
+    font-size: 16px;
+}
+
+button.selected.svelte-kqij2n {
+    background: #f9e0d8 !important;
+    color: #de5900 !important;
+}
+#component-25{
+    display: flex;
+    flex-direction: column;
+}
+#component-26{
+    flex-grow: 0.3;
+    min-width: min(320px, 100%);
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+}
+#next_frmame{
+    width: 60%;
+}
+#clear_frmame{
+    width: 90%;
+}
