@@ -61,7 +61,28 @@ pip install decord opencv-python git+https://github.com/facebookresearch/pytorch
     or refer this [Website](https://detectron2.readthedocs.io/en/latest/tutorials/install.html).
   
 3. Error in gradio. As there are a big update in `gradio>=4.0.0`, please make sure install gradio with the same verion in `requirements.txt`.
+
+4. Error with deepspeed. If you fine-tune your model, this error occours:
+    ```
+    FAILED: cpu_adam.so
+    /usr/bin/ld: cannot find -lcurand
+    ```
+    This error is caused by the wrong soft links when installing deepspeed. Please try to the following command to solve the error:
+    ```
+    cd ~/miniconda3/envs/vitron/lib
+    ls -al libcurand*  # check the links
+    rm libcurand.so   # remove the wrong links
+    ln -s libcurand.so.10.3.5.119 libcurand.so  # build new links
+    ```
+    Double check again:
+    ```
+    python 
+    from deepspeed.ops.op_builder import CPUAdamBuilder
+    ds_opt_adam = CPUAdamBuilder().load()  # if loading successfully, then deepspeed are installed successfully.
+    ```
+
 </details>
+
 
 
 ## 👍 Deploying Gradio Demo
