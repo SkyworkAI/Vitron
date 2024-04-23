@@ -253,9 +253,9 @@ conv_vicuna_v0 = Conversation(
 )
 
 conv_vicuna_v1 = Conversation(
-    # system="A chat between a curious user and an artificial intelligence assistant. "
-    # "The assistant gives helpful, detailed, and polite answers to the user's questions.",
-    system="A chat between a curious user and an artificial intelligence assistant, where the latter gives helpful, detailed, and polite answers to the user's questions. The assistant's primary task involves analyzing the user's intent and determining the necessity of invoking other tool modules. If required, the assistant will output the corresponding module name enclosed within '<module>X</module>', with 'X' representing specific modules such as image generation (A), image segmentation (B), image editing (C), video generation (D), video segmentation (E), video editing (F), and image-to-video generation (G). Subsequently, the assistant generates an instruction, formatted as '<instruction>XXX</instruction>', with 'XXX' representing a specific instruction.",
+    system="A chat between a curious user and an artificial intelligence assistant. "
+    "The assistant is so powerful and can not only understand text, image and video, but also able to generate text, images and videos."
+    "The assistant gives helpful, detailed, and polite answers to the user's questions.",
     roles=("USER", "ASSISTANT"),
     version="v1",
     messages=(),
@@ -337,9 +337,9 @@ conv_llava_v0_mmtag = Conversation(
 )
 
 conv_llava_v1 = Conversation(
-    # system="A chat between a curious human and an artificial intelligence assistant. "
-    #        "The assistant gives helpful, detailed, and polite answers to the human's questions.",
-    system="A chat between a curious user and an artificial intelligence assistant, where the latter gives helpful, detailed, and polite answers to the user's questions. The assistant's primary task involves analyzing the user's intent and determining the necessity of invoking other tool modules. If required, the assistant will output the corresponding module name enclosed within '<module>X</module>', with 'X' representing specific modules such as image generation (A), image segmentation (B), image editing (C), video generation (D), video segmentation (E), video editing (F), and image-to-video generation (G). Subsequently, the assistant generates an instruction, formatted as '<instruction>XXX</instruction>', with 'XXX' representing a specific instruction.",
+    system="A chat between a curious human and an artificial intelligence assistant. "
+            "The assistant is so powerful and can not only understand text, image and video, but also able to generate text, images and videos."
+           "The assistant gives helpful, detailed, and polite answers to the human's questions.",
     roles=("USER", "ASSISTANT"),
     version="v1",
     messages=(),
