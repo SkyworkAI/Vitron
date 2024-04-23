@@ -828,7 +828,6 @@ class LazySupervisedDataset(Dataset):
                         region_ann = [self.list_data_dict[i]['bbox']]
                         image, region = zip(*[expand2squareWregion(i, tuple(int(x * 255) for x in image_processor.image_mean), j) for i, j in zip(image, region_ann)])
                         source_id = sources[0]['id']
-                        # show_image_with_bboxes(os.path.join('/mnt/haofei/VideoGPT/LLaVA-Interactive-Demo/data/vg', sources[0]['image']), [sources[0]['bbox']], f'./{source_id}_bbox.jpg')
                         # show_image_with_bboxes(image[0], region, f'./{source_id}_transformed_1_bbox.jpg')
                         ori_image_size = [[img.width, img.height] for img in image]
                         image = [image_processor.preprocess(i, return_tensors='pt')['pixel_values'][0] for i in image]
@@ -1044,17 +1043,7 @@ def compute_metrics(pred):
     return {
         'acc': gen_acc
     }
-    # all unnecessary tokens are removed
-    # pred_str = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
-    # label_str = tokenizer.batch_decode(labels_ids, skip_special_tokens=True)
 
-    # rouge_output = rouge.compute(predictions=pred_str, references=label_str, rouge_types=["rouge2"])["rouge2"].mid
-
-    # return {
-    #     "rouge2_precision": round(rouge_output.precision, 4),
-    #     "rouge2_recall": round(rouge_output.recall, 4),
-    #     "rouge2_fmeasure": round(rouge_output.fmeasure, 4),
-    # }
 
 def train():
     global local_rank
@@ -1180,7 +1169,6 @@ def train():
             conversation_lib.default_conversation = conversation_lib.conv_templates[model_args.version]
         else:
             conversation_lib.default_conversation = conversation_lib.conv_templates["vicuna_v1"]
-        # add specfical tokens <module> </module> <instruction> </instruction>
         # smart_tokenizer
     # =============================================================================================================
     if model_args.image_tower is not None or model_args.video_tower is not None:
@@ -1230,7 +1218,7 @@ def train():
         # =============================================================================================================
         model.config.tune_region_mlp_adapter = training_args.tune_region_mlp_adapter = model_args.tune_region_mlp_adapter
         if model_args.tune_region_mlp_adapter:
-            model.requires_grad_(False)
+            # model.requires_grad_(False)
             for p in model.get_model().region_extractor.parameters():
                 p.requires_grad = True
 
@@ -1270,16 +1258,8 @@ def train():
                     args=training_args,
                     # compute_metrics=compute_metrics,
                     **data_module)
-    # print('-------  trainer.args ----------')
-    # print(trainer.args)
-    # print('-------  model.args ----------')
-    # print(model_args)
-    # print('-------  data.args ----------')
-    # print(data_args)
-    # exit(0)
         
     if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")):
-    # if list(pathlib.Path('./checkpoints/vitron-7b-lora-2').glob("checkpoint-*")):
         trainer.train(resume_from_checkpoint=False)
     else:
         trainer.train()
