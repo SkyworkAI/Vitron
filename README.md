@@ -63,11 +63,13 @@ pip install decord opencv-python git+https://github.com/facebookresearch/pytorch
 3. Error in gradio. As there are a big update in `gradio>=4.0.0`, please make sure install gradio with the same verion in `requirements.txt`.
 </details>
 
+
 ## 👍 Deploying Gradio Demo
 * Firstly, you need to prepare the checkpoint, and then you can run the demo locally via:
 ```
 python app.py
 ```
+
 
 
 ## 🙌 Related Projects
