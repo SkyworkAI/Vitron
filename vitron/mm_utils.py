@@ -35,7 +35,6 @@ def show_image_with_bboxes(image_path, bboxes, save_path):
         h = y2-y1
         # create bbox
         rect = patches.Rectangle((x1, y1), w, h, linewidth=1, edgecolor='r', facecolor='none')
-        # 添加边界框到绘图对象
         ax.add_patch(rect)
     
     # show image
@@ -106,15 +105,11 @@ def tokenizer_image_region_token(prompt, tokenizer, region_token_index=OBJS_TOKE
     """
     input_ids = []
     chunks = prompt.split('<objs>')
-    # print('chunks: ', chunks)
     for idx, ck in enumerate(chunks):
         _inputs = tokenizer_image_token(ck, tokenizer, is_first=(idx == 0))
-        # print(f'_inputs {idx}: {_inputs}', )
         input_ids.extend(_inputs)
         if idx < len(chunks)-1:
             input_ids.extend([region_token_index])
-    # print('input_ids: ', input_ids)
-    # exit(0)
     if return_tensors is not None:
         if return_tensors == 'pt':
             return torch.tensor(input_ids, dtype=torch.long)
