@@ -99,12 +99,11 @@ checkpoints
 │   ├── tokenizer_config.json
 │   ├── tokenizer.model
 ├── Vitron-lora
-│   ├── vitron-7b-lora-4
-│   │   ├── adapter_config.json
-│   │   ├── adapter_model.bin
-│   │   ├── config.json
-│   │   ├── non_lora_trainables.bin
-│   │   └── trainer_state.json
+│   ├── adapter_config.json
+│   ├── adapter_model.bin
+│   ├── config.json
+│   ├── non_lora_trainables.bin
+│   └── trainer_state.json
 └── zeroscope
     ├── model_index.json
     ├── scheduler
