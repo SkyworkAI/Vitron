@@ -10,10 +10,10 @@ Here, we provide the instructions and scripts for setting up the checkpoints emp
 | i2vgen-xl     | image-to-video generation        |   [.checkpoints/i2vgen-xl](.checkpints/i2vgen-xl) | [Link](https://huggingface.co/ali-vilab) |
 | LanguageBind | image & video encoder        |    [.checkpoints/LanguageBind](.checkpints/LanguageBind) | [Link](https://github.com/PKU-YuanGroup/LanguageBind) |
 | OpenCLIP | image & text encoder        |    [.checkpoints/openai](.checkpints/openai)|[Link](https://huggingface.co/openai) |
-| SEEM | image & video segmentation        |    [.checkpoints/seem](.checkpints/seem) | [Preparing]() |
+| SEEM | image & video segmentation        |    [.checkpoints/seem](.checkpints/seem) | [Link](https://huggingface.co/xdecoder/SEEM/blob/main/seem_focall_v1.pt) |
 | StableVideo | video editing        |    [.checkpoints/stablevideo](.checkpints/stablevideo) | [Link](https://github.com/rese1f/StableVideo) |
 | Vitron-base |   reasoning      |    [.checkpoints/Vitron-base](.checkpints/Vitron-base)| [Link](https://huggingface.co/Vitron/vitron-base) |
-| Vitron-lora | reasoning       |    [.checkpoints/Vitron-lora](.checkpints/Vitron-lora)| [[Link](https://huggingface.co/Vitron/vitron-lora)] |
+| Vitron-lora | reasoning       |    [.checkpoints/Vitron-lora](.checkpints/Vitron-lora)| [Link](https://huggingface.co/Vitron/vitron-lora) |
 | ZeroScope | video generation       |    [.checkpoints/zeroscope](.checkpints/zeroscope) | [Link](https://huggingface.co/cerspense/zeroscope_v2_576w) |
 
 

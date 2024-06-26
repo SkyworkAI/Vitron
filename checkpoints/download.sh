@@ -44,6 +44,8 @@ git clone https://huggingface.co/Vitron/vitron-lora
 cd ..
 echo "prepared checkpoints for SEEM"
 mkdir seem
+cd seem
+wget https://huggingface.co/xdecoder/SEEM/blob/main/seem_focall_v1.pt
 
 
 cd ..
