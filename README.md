@@ -128,7 +128,7 @@ If you find our paper and code useful in your research, please consider giving a
 
 <!---->
 ## ✨ Star History
-[![Star History](https://api.star-history.com/svg?repos=/SkyworkAI/Vitron&type=Date)](https://star-history.com/#SkyworkAI/Vitron&Date)
+[![Star History](https://api.star-history.com/svg?repos=SkyworkAI/Vitron&type=Date)](https://star-history.com/#SkyworkAI/Vitron&Date)
 
 
 
