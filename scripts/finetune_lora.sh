@@ -3,7 +3,7 @@
 JSON_FOLDER=None
 IMAGE_FOLDER=None
 VIDEO_FOLDER=None
-DATA_PATH="./fineTune/fine_tune.json"
+DATA_PATH="./data/data.json"
 
 # NCCL_P2P_LEVEL=NVL
 

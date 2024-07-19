@@ -15,6 +15,8 @@
 
 
 ## 📰 News
+* **[2024.07.19]** We release the [Dataset](data/data.json) constructed for  `Output-side Invocation-oriented Instruction Tuning`. 
+* **[2024.06.28]** 🤗 We release the checkpoint, refer to [README](checkpoints/README.md) for more details.
 * **[2024.04.04]**  👀👀👀 Our [Vitron](https://vitron-llm.github.io/) is available now! Welcome to **watch** 👀 this repository for the latest updates.
 
 
@@ -84,14 +86,46 @@ pip install decord opencv-python git+https://github.com/facebookresearch/pytorch
 </details>
 
 
+## Code Structure
+
+```
+.
+├── assets
+├── checkpoints    # saving the pre-trained checkpoints
+├── data          
+├── examples
+├── modules        # each modules used in our project
+│   ├── GLIGEN
+│   ├── i2vgen-xl
+│   ├── SEEM
+│   └── StableVideo
+├── scripts
+└── vitron
+    ├── model
+    │   ├── language_model
+    │   ├── multimodal_encoder
+    │   ├── multimodal_projector
+    │   └── region_extractor
+    └── train
+```
+
 
 ## 👍 Deploying Gradio Demo
-* Firstly, you need to prepare the checkpoint, and then you can run the demo locally via:
+* Firstly, you need to prepare the checkpoint, see [README]() for more details.
+* Then, you can run the demo locally via:
 ```
 python app.py
 ```
 
 
+## Fine-tuning your model
+- Firstly, prepare the dataset. 
+We release the constructed dataset for `Invocation-oriented Instruction Tuning`. Please refer for the [README]() for more details.
+- Then, modify the `image/video/data` path in [fine_lora.sh](scripts/finetune_lora.sh).
+- Next, run the code:
+```
+bash scripts/fine_lora.sh
+```
 
 ## 🙌 Related Projects
 You may refer to related work that serves as foundations for our framework and code repository, 
