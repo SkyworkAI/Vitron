@@ -47,11 +47,19 @@ For example:
     ...
 ]
 ```
+where the corresponding function for each moudle is:
+- `A` - image generation
+- `B` - image segmentation 
+- `C` - image editing
+- `D` - video generation
+- `E` - video segmentation
+- `F` - video editing
+- `G` - image-to-video
 
 The summay of the constructed dataset are shown as follows:
 
 <p align="center" width="100%">
-<a target="_blank"><img src="../assets/image.png" alt="dataset" style="width: 90%; min-width: 200px; display: block; margin: auto;"></a>
+<a target="_blank"><img src="../assets/dataset.png" alt="dataset" style="width: 90%; min-width: 200px; display: block; margin: auto;"></a>
 </p>
 
 
