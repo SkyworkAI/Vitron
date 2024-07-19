@@ -15,7 +15,7 @@
 
 
 ## 📰 News
-* **[2024.07.19]** We release the [Dataset](data/data.json) constructed for  `Output-side Invocation-oriented Instruction Tuning`. 
+* **[2024.07.19]** We release the [Dataset](data/README.md) constructed for  `Output-side Invocation-oriented Instruction Tuning`. 
 * **[2024.06.28]** 🤗 We release the checkpoint, refer to [README](checkpoints/README.md) for more details.
 * **[2024.04.04]**  👀👀👀 Our [Vitron](https://vitron-llm.github.io/) is available now! Welcome to **watch** 👀 this repository for the latest updates.
 
@@ -120,7 +120,7 @@ python app.py
 
 ## Fine-tuning your model
 - Firstly, prepare the dataset. 
-We release the constructed dataset for `Invocation-oriented Instruction Tuning`. Please refer for the [README]() for more details.
+We release the constructed dataset for `Invocation-oriented Instruction Tuning`. Please refer for the [README](data/README.md) for more details.
 - Then, modify the `image/video/data` path in [fine_lora.sh](scripts/finetune_lora.sh).
 - Next, run the code:
 ```
