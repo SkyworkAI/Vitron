@@ -121,7 +121,7 @@ python app.py
 ## Fine-tuning your model
 - Firstly, prepare the dataset. 
 We release the constructed dataset for `Invocation-oriented Instruction Tuning`. Please refer for the [README](data/README.md) for more details.
-- Then, modify the `image/video/data` path in [fine_lora.sh](scripts/finetune_lora.sh).
+- Then, modify the `image/video/data` path in [finetune_lora.sh](scripts/finetune_lora.sh).
 - Next, run the code:
 ```
 bash scripts/fine_lora.sh
