@@ -1,10 +1,11 @@
 
 
 # <img src="vitron.png" style="width: 5%"> VITRON: A Unified Pixel-level Vision LLM for Understanding, Generating, Segmenting, Editing
+**NeurIPS 2024 Paper**
+
 [Hao Fei](http://haofei.vip/)$^{1,2}$, [Shengqiong Wu](https://chocowu.github.io/)$^{1,2}$, [Hanwang Zhang](https://personal.ntu.edu.sg/hanwangzhang/)$^{1,3}$, [Tat-Seng Chua](https://www.chuatatseng.com/)$^{2}$, [Shuicheng Yan](https://yanshuicheng.info/)$^{1}$
 
 **▶ $^{1}$ Skywork AI, Singapore   ▶ $^{2}$ National University of Singapore   ▶ $^{3}$ Nanyang Technological University**
-
 
 
 <a href='https://vitron-llm.github.io/'><img src='https://img.shields.io/badge/Project-Page-Green'></a>
@@ -15,6 +16,7 @@
 
 
 ## 📰 News
+* **[2024.09.26]** Excited that this work has been accepted by NeurIPS 2024. 
 * **[2024.07.19]** We release the [Dataset](data/README.md) constructed for  `Output-side Invocation-oriented Instruction Tuning`. 
 * **[2024.06.28]** 🤗 We release the checkpoint, refer to [README](checkpoints/README.md) for more details.
 * **[2024.04.04]**  👀👀👀 Our [Vitron](https://vitron-llm.github.io/) is available now! Welcome to **watch** 👀 this repository for the latest updates.
@@ -158,11 +160,11 @@ Thanks for their wonderful works.
 If you find our paper and code useful in your research, please consider giving a star :star: and citation :pencil:.
 
 ```BibTeX
-@articles{hao2024vitron,
-  title={Vitron: A Unified Pixel-level Vision LLM for Understanding, Generating, Segmenting, Editing},
-  author={Hao Fei, Shengqiong Wu, Hanwang Zhang, Tat-Seng Chua, Shuicheng Yan},
-  journal={CoRR},
-  year={2024}
+@inproceedings{fei2024vitron,
+  title={VITRON: A Unified Pixel-level Vision LLM for Understanding, Generating, Segmenting, Editing},
+  author={Fei, Hao and Wu, Shengqiong and Zhang, Hanwang and Chua, Tat-Seng and Yan, Shuicheng},
+  year={2024},
+  journal={Proceedings of the Advances in neural information processing systems},
 }
 ```
 
