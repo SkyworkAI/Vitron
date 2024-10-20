@@ -17,7 +17,7 @@
 
 ## 📰 News
 * **[2024.09.26]** Excited that this work has been accepted by NeurIPS 2024. 
-* **[2024.07.19]** We release the [Dataset](data/README.md) constructed for  `Output-side Invocation-oriented Instruction Tuning`. 
+* **[2024.07.19]** We release the [Dataset](data/README.md) constructed for  `Text Invocation Instruction Tuning`. 
 * **[2024.06.28]** 🤗 We release the checkpoint, refer to [README](checkpoints/README.md) for more details.
 * **[2024.04.04]**  👀👀👀 Our [Vitron](https://vitron-llm.github.io/) is available now! Welcome to **watch** 👀 this repository for the latest updates.
 
